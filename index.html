@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BrightSmile Dental Clinic — Gentle, Modern Dentistry Near You</title>
+<meta name="description" content="BrightSmile Dental Clinic offers general dentistry, teeth whitening, braces, implants and emergency dental care. Book your appointment today." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+/* =========================================================
+   BrightSmile Dental — stylesheet
+   ========================================================= */
+
+:root {
+  --teal-50:  #eefbf9;
+  --teal-100: #d3f4ef;
+  --teal-300: #6fd9cc;
+  --teal-500: #14a89a;
+  --teal-600: #0e8d81;
+  --teal-700: #0b6f66;
+
+  --ink-900: #0d2b31;
+  --ink-700: #1d454c;
+  --ink-500: #4a686e;
+  --ink-300: #8ba1a6;
+
+  --sand: #fff8ee;
+  --amber: #f5a524;
+
+  --bg: #ffffff;
+  --bg-alt: #f5faf9;
+  --line: #e2eceb;
+
+  --radius: 16px;
+  --radius-lg: 24px;
+  --shadow-sm: 0 2px 8px rgba(13, 43, 49, .06);
+  --shadow: 0 12px 32px rgba(13, 43, 49, .09);
+  --shadow-lg: 0 24px 60px rgba(13, 43, 49, .14);
+
+  --container: 1160px;
+  --font: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; scroll-padding-top: 90px; }
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--ink-700);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+img, svg { max-width: 100%; }
+a { color: var(--teal-600); text-decoration: none; }
+a:hover { color: var(--teal-700); }
+
+h1, h2, h3, h4 { color: var(--ink-900); line-height: 1.2; margin: 0 0 .5em; font-weight: 800; }
+h1 { font-size: clamp(2.2rem, 5.2vw, 3.6rem); letter-spacing: -.02em; }
+h2 { font-size: clamp(1.7rem, 3.4vw, 2.5rem); letter-spacing: -.015em; }
+h3 { font-size: 1.15rem; }
+p  { margin: 0 0 1rem; }
+
+.container { width: 100%; max-width: var(--container); margin-inline: auto; padding-inline: 20px; }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+.skip-link {
+  position: absolute; left: -999px; top: 0; z-index: 200;
+  background: var(--teal-600); color: #fff; padding: 10px 18px; border-radius: 0 0 10px 0;
+}
+.skip-link:focus { left: 0; color: #fff; }
+
+:focus-visible { outline: 3px solid var(--teal-500); outline-offset: 2px; border-radius: 6px; }
+
+.eyebrow {
+  text-transform: uppercase; letter-spacing: .12em; font-size: .74rem; font-weight: 700;
+  color: var(--teal-600); margin: 0 0 .6rem;
+}
+
+/* ---------------- Buttons ---------------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .55rem;
+  padding: .72rem 1.4rem; border: 1px solid transparent; border-radius: 999px;
+  font: inherit; font-weight: 700; font-size: .95rem; cursor: pointer;
+  transition: transform .15s ease, box-shadow .2s ease, background .2s ease, color .2s ease;
+  white-space: nowrap;
+}
+.btn svg { width: 18px; height: 18px; fill: currentColor; }
+.btn:hover { transform: translateY(-2px); }
+.btn--primary { background: var(--teal-500); color: #fff; box-shadow: 0 8px 20px rgba(20, 168, 154, .3); }
+.btn--primary:hover { background: var(--teal-600); color: #fff; box-shadow: 0 12px 26px rgba(20, 168, 154, .38); }
+.btn--ghost { background: transparent; color: var(--ink-900); border-color: var(--line); }
+.btn--ghost:hover { background: var(--teal-50); border-color: var(--teal-300); color: var(--ink-900); }
+.btn--light { background: #fff; color: var(--teal-700); }
+.btn--light:hover { background: var(--teal-50); color: var(--teal-700); }
+.btn--lg { padding: .95rem 1.8rem; font-size: 1rem; }
+.btn--block { width: 100%; }
+
+/* ---------------- Top bar ---------------- */
+.topbar { background: var(--ink-900); color: #cfe6e4; font-size: .82rem; }
+.topbar__inner { display: flex; align-items: center; justify-content: flex-end; gap: 1rem; min-height: 40px; flex-wrap: wrap; }
+.topbar__item { display: inline-flex; align-items: center; gap: .45rem; color: #cfe6e4; }
+a.topbar__item:hover { color: #fff; }
+.topbar__item svg { width: 15px; height: 15px; fill: var(--teal-300); }
+.topbar__sep { width: 1px; height: 16px; background: rgba(255,255,255,.18); }
+
+/* ---------------- Header ---------------- */
+.header {
+  position: sticky; top: 0; z-index: 100; background: rgba(255,255,255,.92);
+  backdrop-filter: blur(10px); border-bottom: 1px solid transparent; transition: box-shadow .2s, border-color .2s;
+}
+.header.is-stuck { box-shadow: var(--shadow-sm); border-bottom-color: var(--line); }
+.header__inner { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 74px; }
+
+.logo { display: inline-flex; align-items: center; gap: .65rem; color: var(--ink-900); }
+.logo:hover { color: var(--ink-900); }
+.logo__mark {
+  display: grid; place-items: center; width: 42px; height: 42px; border-radius: 13px;
+  background: linear-gradient(135deg, var(--teal-500), var(--teal-700));
+  box-shadow: 0 6px 16px rgba(20, 168, 154, .32);
+}
+.logo__mark svg { width: 24px; height: 24px; fill: #fff; }
+.logo__text { display: flex; flex-direction: column; font-weight: 700; font-size: 1.12rem; line-height: 1.1; }
+.logo__text strong { font-weight: 800; color: var(--teal-600); }
+.logo__text small { font-size: .68rem; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-300); }
+.logo--light, .logo--light:hover { color: #fff; }
+.logo--light .logo__text strong { color: var(--teal-300); }
+.logo--light .logo__text small { color: rgba(255,255,255,.5); }
+
+.nav { display: flex; align-items: center; gap: 1.6rem; }
+.nav__list { display: flex; align-items: center; gap: 1.5rem; list-style: none; margin: 0; padding: 0; }
+.nav__link { position: relative; color: var(--ink-700); font-weight: 600; font-size: .95rem; padding: .35rem 0; }
+.nav__link::after {
+  content: ""; position: absolute; left: 0; bottom: 0; height: 2px; width: 0;
+  background: var(--teal-500); border-radius: 2px; transition: width .22s ease;
+}
+.nav__link:hover, .nav__link.is-active { color: var(--ink-900); }
+.nav__link:hover::after, .nav__link.is-active::after { width: 100%; }
+
+.nav-toggle { display: none; background: none; border: 0; padding: 10px; cursor: pointer; }
+.nav-toggle__bars { display: grid; gap: 5px; }
+.nav-toggle__bars i { display: block; width: 24px; height: 2px; background: var(--ink-900); border-radius: 2px; transition: transform .25s, opacity .2s; }
+.nav-toggle[aria-expanded="true"] i:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.nav-toggle[aria-expanded="true"] i:nth-child(2) { opacity: 0; }
+.nav-toggle[aria-expanded="true"] i:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+/* ---------------- Hero ---------------- */
+.hero {
+  position: relative; overflow: hidden;
+  background:
+    radial-gradient(900px 460px at 88% -8%, var(--teal-50), transparent 62%),
+    linear-gradient(180deg, #fff 0%, var(--bg-alt) 100%);
+}
+.hero__inner {
+  display: grid; grid-template-columns: 1.05fr .95fr; gap: 3rem; align-items: center;
+  padding-block: clamp(3rem, 7vw, 5.5rem);
+}
+.hero h1 span { color: var(--teal-600); }
+.lead { font-size: 1.1rem; color: var(--ink-500); max-width: 52ch; }
+.hero__actions { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 1.8rem; }
+
+.hero__badges {
+  display: flex; flex-wrap: wrap; gap: 2rem; list-style: none; margin: 2.6rem 0 0; padding: 1.6rem 0 0;
+  border-top: 1px solid var(--line); color: var(--ink-500); font-size: .9rem;
+}
+.hero__badges strong { display: block; font-size: 1.5rem; color: var(--ink-900); font-weight: 800; }
+
+.hero__visual { position: relative; display: grid; place-items: center; min-height: 340px; }
+.hero__card {
+  position: relative; z-index: 2; background: #fff; border-radius: var(--radius-lg);
+  padding: 2.2rem 2rem; text-align: center; max-width: 330px; box-shadow: var(--shadow-lg);
+  border: 1px solid var(--line);
+}
+.hero__tooth {
+  width: 84px; height: 84px; margin: 0 auto 1.1rem; border-radius: 24px; display: grid; place-items: center;
+  background: linear-gradient(135deg, var(--teal-500), var(--teal-700));
+  box-shadow: 0 12px 26px rgba(20, 168, 154, .35);
+}
+.hero__tooth svg { width: 46px; height: 46px; fill: #fff; }
+.hero__card-title { font-weight: 800; color: var(--ink-900); font-size: 1.1rem; margin-bottom: .35rem; }
+.hero__card-text { color: var(--ink-500); font-size: .92rem; margin: 0; }
+
+.hero__blob { position: absolute; border-radius: 50%; filter: blur(2px); opacity: .5; }
+.hero__blob--1 { width: 250px; height: 250px; background: var(--teal-100); top: 4%; right: 2%; }
+.hero__blob--2 { width: 170px; height: 170px; background: var(--sand); bottom: 4%; left: 4%; }
+
+/* ---------------- Strip ---------------- */
+.strip { padding-block: 3rem; border-bottom: 1px solid var(--line); }
+.strip__grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.6rem; }
+.strip__item svg { width: 30px; height: 30px; fill: var(--teal-500); margin-bottom: .5rem; }
+.strip__item h3 { margin-bottom: .25rem; font-size: 1.02rem; }
+.strip__item p { color: var(--ink-500); font-size: .92rem; margin: 0; }
+
+/* ---------------- Sections ---------------- */
+.section { padding-block: clamp(3.5rem, 7vw, 6rem); }
+.section--alt { background: var(--bg-alt); }
+.section__head { max-width: 640px; margin: 0 auto 3rem; text-align: center; }
+.section__sub { color: var(--ink-500); font-size: 1.03rem; margin: 0; }
+
+/* ---------------- Service cards ---------------- */
+.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+.card {
+  background: #fff; border: 1px solid var(--line); border-radius: var(--radius-lg);
+  padding: 2rem 1.7rem; box-shadow: var(--shadow-sm);
+  transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+}
+.card:hover { transform: translateY(-6px); box-shadow: var(--shadow); border-color: var(--teal-300); }
+.card__icon {
+  display: grid; place-items: center; width: 54px; height: 54px; border-radius: 16px;
+  background: var(--teal-50); margin-bottom: 1.1rem;
+}
+.card__icon svg { width: 28px; height: 28px; fill: var(--teal-600); }
+.card p { color: var(--ink-500); font-size: .94rem; }
+.card__price { margin: 1.1rem 0 0; padding-top: .9rem; border-top: 1px dashed var(--line); font-size: .88rem; color: var(--ink-300); }
+.card__price strong { color: var(--ink-900); font-size: 1.02rem; }
+
+/* ---------------- About ---------------- */
+.about { display: grid; grid-template-columns: .85fr 1.15fr; gap: 3.5rem; align-items: center; }
+.about__visual { position: relative; }
+.about__photo {
+  aspect-ratio: 4 / 5; border-radius: var(--radius-lg); display: grid; place-items: center;
+  background: linear-gradient(150deg, var(--teal-100), var(--teal-500));
+  box-shadow: var(--shadow);
+}
+.about__photo svg { width: 45%; height: 45%; fill: rgba(255,255,255,.85); }
+.about__stat {
+  position: absolute; right: -18px; bottom: 28px; background: #fff; border-radius: var(--radius);
+  padding: 1rem 1.3rem; box-shadow: var(--shadow); border: 1px solid var(--line); max-width: 190px;
+}
+.about__stat strong { display: block; font-size: 1.9rem; font-weight: 800; color: var(--teal-600); line-height: 1; }
+.about__stat span { font-size: .82rem; color: var(--ink-500); }
+
+.ticks { list-style: none; margin: 1.5rem 0 2rem; padding: 0; display: grid; gap: .7rem; }
+.ticks li { position: relative; padding-left: 2rem; color: var(--ink-700); }
+.ticks li::before {
+  content: "✓"; position: absolute; left: 0; top: 1px; width: 21px; height: 21px; border-radius: 50%;
+  background: var(--teal-50); color: var(--teal-600); font-size: .74rem; font-weight: 800;
+  display: grid; place-items: center;
+}
+
+/* ---------------- Reviews ---------------- */
+.reviews { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+.review {
+  margin: 0; background: var(--bg-alt); border: 1px solid var(--line);
+  border-radius: var(--radius-lg); padding: 1.9rem 1.7rem;
+}
+.review__stars { color: var(--amber); letter-spacing: .12em; margin-bottom: .8rem; }
+.review blockquote { margin: 0 0 1.4rem; color: var(--ink-700); font-size: .97rem; }
+.review figcaption { display: flex; align-items: center; gap: .8rem; }
+.avatar {
+  display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--teal-500), var(--teal-700));
+  color: #fff; font-weight: 800;
+}
+.review figcaption strong { display: block; color: var(--ink-900); font-size: .95rem; }
+.review figcaption small { color: var(--ink-300); font-size: .82rem; }
+
+/* ---------------- Contact / form ---------------- */
+.contact { display: grid; grid-template-columns: 1fr 1fr; gap: 3.5rem; align-items: start; }
+
+.info-list { list-style: none; margin: 2rem 0; padding: 0; display: grid; gap: 1.2rem; }
+.info-list li { display: flex; gap: 1rem; align-items: flex-start; }
+.info-list__icon {
+  flex: 0 0 auto; display: grid; place-items: center; width: 42px; height: 42px;
+  border-radius: 13px; background: #fff; border: 1px solid var(--line);
+}
+.info-list__icon svg { width: 20px; height: 20px; fill: var(--teal-600); }
+.info-list strong { color: var(--ink-900); }
+
+.hours { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.hours th, .hours td { padding: .8rem 1.1rem; text-align: left; font-size: .93rem; border-bottom: 1px solid var(--line); }
+.hours tr:last-child th, .hours tr:last-child td { border-bottom: 0; }
+.hours th { font-weight: 600; color: var(--ink-700); }
+.hours td { color: var(--ink-500); text-align: right; }
+.hours__closed { color: #c0463c; font-weight: 600; }
+
+.contact__form {
+  background: #fff; border: 1px solid var(--line); border-radius: var(--radius-lg);
+  padding: 2rem; box-shadow: var(--shadow);
+}
+.field { margin-bottom: 1.1rem; }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.field label { display: block; font-size: .88rem; font-weight: 600; color: var(--ink-900); margin-bottom: .4rem; }
+.optional { font-weight: 500; color: var(--ink-300); }
+.field input, .field select, .field textarea {
+  width: 100%; padding: .78rem .95rem; font: inherit; font-size: .95rem; color: var(--ink-900);
+  background: var(--bg-alt); border: 1px solid var(--line); border-radius: 12px;
+  transition: border-color .18s, background .18s, box-shadow .18s;
+}
+.field textarea { resize: vertical; min-height: 96px; }
+.field input::placeholder, .field textarea::placeholder { color: var(--ink-300); }
+.field input:focus, .field select:focus, .field textarea:focus {
+  outline: none; background: #fff; border-color: var(--teal-500);
+  box-shadow: 0 0 0 4px rgba(20, 168, 154, .13);
+}
+.field input[aria-invalid="true"], .field select[aria-invalid="true"] { border-color: #d9534f; background: #fff6f5; }
+
+.form-note { text-align: center; font-size: .84rem; color: var(--ink-300); margin: .9rem 0 0; }
+.form-status { margin: .8rem 0 0; font-size: .9rem; font-weight: 600; text-align: center; }
+.form-status.is-ok { color: var(--teal-600); }
+.form-status.is-error { color: #c0463c; }
+
+/* ---------------- CTA ---------------- */
+.cta { background: linear-gradient(135deg, var(--teal-600), var(--ink-900)); color: #fff; padding-block: 3.2rem; }
+.cta__inner { display: flex; align-items: center; justify-content: space-between; gap: 2rem; flex-wrap: wrap; }
+.cta h2 { color: #fff; margin-bottom: .3rem; }
+.cta p { color: rgba(255,255,255,.8); margin: 0; }
+
+/* ---------------- Footer ---------------- */
+.footer { background: var(--ink-900); color: rgba(255,255,255,.72); padding-top: 3.5rem; font-size: .93rem; }
+.footer__grid { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1.2fr; gap: 2.5rem; padding-bottom: 2.8rem; }
+.footer__brand p { margin-top: 1rem; max-width: 34ch; color: rgba(255,255,255,.6); }
+.footer h4 { color: #fff; font-size: .95rem; margin-bottom: 1rem; }
+.footer__col ul { list-style: none; margin: 0; padding: 0; display: grid; gap: .6rem; }
+.footer a { color: rgba(255,255,255,.72); }
+.footer a:hover { color: var(--teal-300); }
+.footer__bottom {
+  display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+  padding-block: 1.3rem; border-top: 1px solid rgba(255,255,255,.1);
+  font-size: .85rem; color: rgba(255,255,255,.5);
+}
+.footer__bottom p { margin: 0; }
+
+/* ---------------- Floating button (mobile) ---------------- */
+.fab {
+  display: none; position: fixed; right: 16px; bottom: 16px; z-index: 90;
+  align-items: center; gap: .5rem; padding: .85rem 1.3rem; border-radius: 999px;
+  background: var(--teal-500); color: #fff; font-weight: 700; font-size: .95rem;
+  box-shadow: 0 10px 26px rgba(20, 168, 154, .45);
+}
+.fab:hover { color: #fff; background: var(--teal-600); }
+.fab svg { width: 19px; height: 19px; fill: currentColor; }
+
+/* ---------------- Reveal on scroll ---------------- */
+.reveal { opacity: 0; transform: translateY(22px); transition: opacity .6s ease, transform .6s ease; }
+.reveal.is-visible { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .reveal { opacity: 1; transform: none; transition: none; }
+  * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+/* ---------------- Responsive ---------------- */
+@media (max-width: 980px) {
+  .hero__inner { grid-template-columns: 1fr; }
+  .hero__visual { order: -1; min-height: 0; }
+  .strip__grid { grid-template-columns: repeat(2, 1fr); gap: 1.8rem; }
+  .cards, .reviews { grid-template-columns: repeat(2, 1fr); }
+  .about { grid-template-columns: 1fr; gap: 2.5rem; }
+  .about__photo { aspect-ratio: 16 / 10; }
+  .about__stat { right: 16px; }
+  .contact { grid-template-columns: 1fr; gap: 2.5rem; }
+  .footer__grid { grid-template-columns: 1fr 1fr; gap: 2rem; }
+}
+
+@media (max-width: 760px) {
+  .nav-toggle { display: block; }
+  .nav {
+    position: fixed; inset: 114px 0 auto 0; flex-direction: column; align-items: stretch;
+    gap: 0; background: #fff; padding: 1rem 20px 1.6rem; border-bottom: 1px solid var(--line);
+    box-shadow: var(--shadow); transform: translateY(-130%); transition: transform .28s ease;
+    max-height: calc(100vh - 114px); overflow-y: auto;
+  }
+  .nav.is-open { transform: none; }
+  .nav__list { flex-direction: column; align-items: stretch; gap: 0; }
+  .nav__link { display: block; padding: .85rem 0; border-bottom: 1px solid var(--line); }
+  .nav__link::after { display: none; }
+  .nav__cta { margin-top: 1.1rem; }
+  .cards, .reviews { grid-template-columns: 1fr; }
+  .hero__badges { gap: 1.4rem; }
+  .fab { display: inline-flex; }
+  .footer { padding-bottom: 76px; }
+}
+
+@media (max-width: 520px) {
+  .strip__grid { grid-template-columns: 1fr; }
+  .field-row { grid-template-columns: 1fr; }
+  .footer__grid { grid-template-columns: 1fr; }
+  .topbar__inner { justify-content: center; }
+  .contact__form { padding: 1.5rem; }
+  .btn { width: auto; }
+  .hero__actions .btn { flex: 1 1 auto; }
+}
+
+/* ---------------- Photos: hero, about, gallery ---------------- */
+.hero__photo {
+  margin: 0; position: relative; z-index: 2; border-radius: var(--radius-lg); overflow: hidden;
+  aspect-ratio: 4 / 5; box-shadow: var(--shadow-lg); border: 6px solid #fff; max-width: 420px;
+}
+.hero__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.hero__float {
+  position: absolute; z-index: 3; left: 50%; bottom: -18px; transform: translateX(-50%);
+  display: flex; align-items: flex-start; gap: .8rem; width: min(330px, 92%);
+  background: #fff; border: 1px solid var(--line); border-radius: var(--radius);
+  padding: .9rem 1.1rem; box-shadow: var(--shadow);
+}
+.hero__float-icon {
+  flex: 0 0 auto; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px;
+  background: linear-gradient(135deg, var(--teal-500), var(--teal-700));
+}
+.hero__float-icon svg { width: 19px; height: 19px; fill: #fff; }
+.hero__float strong { display: block; color: var(--ink-900); font-size: .93rem; line-height: 1.3; }
+.hero__float small { color: var(--ink-500); font-size: .81rem; }
+
+.about__photo {
+  margin: 0; aspect-ratio: 4 / 5; border-radius: var(--radius-lg); overflow: hidden;
+  box-shadow: var(--shadow); background: var(--teal-100);
+}
+.about__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.gallery { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: 230px; gap: 1.1rem; }
+.gallery__item {
+  position: relative; margin: 0; overflow: hidden; border-radius: var(--radius);
+  height: 100%; box-shadow: var(--shadow-sm); background: var(--bg-alt);
+}
+.gallery__item--wide { grid-column: span 2; }
+.gallery__item img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+  transition: transform .5s ease;
+}
+.gallery__item:hover img { transform: scale(1.06); }
+.gallery__item figcaption {
+  position: absolute; left: 0; right: 0; bottom: 0; padding: 1.6rem 1.1rem .9rem;
+  color: #fff; font-size: .9rem; font-weight: 600;
+  background: linear-gradient(to top, rgba(13, 43, 49, .8), transparent);
+}
+
+@media (max-width: 980px) {
+  .hero__photo { max-width: 100%; aspect-ratio: 16 / 11; }
+  .about__photo { aspect-ratio: 16 / 11; }
+  .gallery { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 200px; }
+  .gallery__item--wide { grid-column: span 1; }
+}
+@media (max-width: 560px) {
+  .gallery { grid-template-columns: 1fr; grid-auto-rows: 220px; }
+}
+
+</style>
+</head>
+<body>
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<!-- ============ TOP BAR ============ -->
+<div class="topbar">
+  <div class="container topbar__inner">
+    <span class="topbar__item">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 10.6V6h-2v7.4l5 3 1-1.7-4-2.1Z"/></svg>
+      Sat – Thu: 10:00 AM – 10:00 PM
+    </span>
+    <span class="topbar__sep" aria-hidden="true"></span>
+    <a class="topbar__item" href="tel:+966500000000">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.2.4 2.4.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.4 0 .8-.2 1l-2.3 2.2Z"/></svg>
+      +966 50 000 0000
+    </a>
+  </div>
+</div>
+
+<!-- ============ HEADER ============ -->
+<header class="header" id="header">
+  <div class="container header__inner">
+    <a class="logo" href="#home" aria-label="BrightSmile Dental, home">
+      <span class="logo__mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32"><path d="M16 5c-2 0-3-1.4-6-1.4C6.4 3.6 4 6.6 4 11c0 5 2.2 7.6 3.2 11.3.7 2.6 1.3 5.1 3 5.1 1.9 0 2.2-2.6 2.9-5.6.5-2 1.2-3 2.9-3s2.4 1 2.9 3c.7 3 1 5.6 2.9 5.6 1.7 0 2.3-2.5 3-5.1C25.8 18.6 28 16 28 11c0-4.4-2.4-7.4-6-7.4-3 0-4 1.4-6 1.4Z"/></svg>
+      </span>
+      <span class="logo__text">Bright<strong>Smile</strong><small>Dental Clinic</small></span>
+    </a>
+
+    <nav class="nav" id="nav" aria-label="Main navigation">
+      <ul class="nav__list">
+        <li><a class="nav__link is-active" href="#home">Home</a></li>
+        <li><a class="nav__link" href="#services">Services</a></li>
+        <li><a class="nav__link" href="#about">About</a></li>
+        <li><a class="nav__link" href="#gallery">Gallery</a></li>
+        <li><a class="nav__link" href="#reviews">Reviews</a></li>
+        <li><a class="nav__link" href="#contact">Contact</a></li>
+      </ul>
+      <a class="btn btn--primary nav__cta" href="#appointment">Book Appointment</a>
+    </nav>
+
+    <button class="nav-toggle" id="navToggle" aria-expanded="false" aria-controls="nav">
+      <span class="nav-toggle__bars" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span class="sr-only">Toggle menu</span>
+    </button>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ============ HERO ============ -->
+  <section class="hero" id="home">
+    <div class="container hero__inner">
+      <div class="hero__copy reveal">
+        <p class="eyebrow">Accepting new patients</p>
+        <h1>A healthy smile,<br /><span>without the fear.</span></h1>
+        <p class="lead">
+          Painless treatments, honest pricing and modern equipment. From routine
+          check-ups to implants and braces — we take care of your whole family.
+        </p>
+        <div class="hero__actions">
+          <a class="btn btn--primary btn--lg" href="#appointment">Book an appointment</a>
+          <a class="btn btn--ghost btn--lg" href="tel:+966500000000">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.2.4 2.4.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.4 0 .8-.2 1l-2.3 2.2Z"/></svg>
+            Call us now
+          </a>
+        </div>
+
+        <ul class="hero__badges">
+          <li><strong>15+</strong> years of practice</li>
+          <li><strong>12k+</strong> happy patients</li>
+          <li><strong>4.9★</strong> average rating</li>
+        </ul>
+      </div>
+
+      <div class="hero__visual reveal">
+        <figure class="hero__photo">
+          <img src="img/hero-scanner.jpg"
+               alt="Dentist examining a patient using a digital dental scanner" width="900" height="1100" />
+        </figure>
+        <div class="hero__float">
+          <span class="hero__float-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8Z"/></svg>
+          </span>
+          <div>
+            <strong>Same-day emergency slots</strong>
+            <small>Toothache? Call before 6 PM and we'll fit you in today.</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FEATURE STRIP ============ -->
+  <section class="strip">
+    <div class="container strip__grid">
+      <div class="strip__item reveal">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3Zm-1 14-4-4 1.4-1.4L11 13.2l4.6-4.6L17 10l-6 6Z"/></svg>
+        <h3>Sterilised &amp; safe</h3>
+        <p>Single-use tools and autoclave sterilisation for every patient.</p>
+      </div>
+      <div class="strip__item reveal">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 10.6V6h-2v7.4l5 3 1-1.7-4-2.1Z"/></svg>
+        <h3>On-time appointments</h3>
+        <p>Fixed slots, minimal waiting. Your time matters to us.</p>
+      </div>
+      <div class="strip__item reveal">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.3-9A5.6 5.6 0 0 1 12 6.3 5.6 5.6 0 0 1 21.3 12c-1.8 4.4-9.3 9-9.3 9Z"/></svg>
+        <h3>Gentle with kids</h3>
+        <p>A calm, friendly approach so children actually enjoy the visit.</p>
+      </div>
+      <div class="strip__item reveal">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 8l10 5 8-4v6h2V8L12 3ZM6 12.2V16c0 1.7 2.7 3 6 3s6-1.3 6-3v-3.8l-6 3-6-3Z"/></svg>
+        <h3>Clear pricing</h3>
+        <p>You get the full cost before treatment starts. No surprises.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SERVICES ============ -->
+  <section class="section" id="services">
+    <div class="container">
+      <header class="section__head reveal">
+        <p class="eyebrow">What we do</p>
+        <h2>Complete dental care under one roof</h2>
+        <p class="section__sub">
+          Whether it's a simple cleaning or a full smile makeover, everything is
+          handled in-clinic by our own specialists.
+        </p>
+      </header>
+
+      <div class="cards">
+        <article class="card reveal">
+          <span class="card__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4c-1.5 0-2.2-1-4.5-1C4.8 3 3 5.2 3 8.5c0 3.7 1.6 5.7 2.4 8.5.5 2 1 3.8 2.2 3.8 1.4 0 1.7-1.9 2.2-4.2.4-1.5.9-2.2 2.2-2.2s1.8.7 2.2 2.2c.5 2.3.8 4.2 2.2 4.2 1.2 0 1.7-1.8 2.2-3.8.8-2.8 2.4-4.8 2.4-8.5C21 5.2 19.2 3 16.5 3 14.2 3 13.5 4 12 4Z"/></svg></span>
+          <h3>General Dentistry</h3>
+          <p>Check-ups, scaling, fillings and fluoride treatment to keep problems small.</p>
+          <p class="card__price">From <strong>SAR 150</strong></p>
+        </article>
+
+        <article class="card reveal">
+          <span class="card__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 2.5 5.6L20 9l-4.2 3.9L17 19l-5-2.9L7 19l1.2-6.1L4 9l5.5-1.4L12 2Z"/></svg></span>
+          <h3>Teeth Whitening</h3>
+          <p>Safe in-clinic whitening that brightens several shades in one sitting.</p>
+          <p class="card__price">From <strong>SAR 800</strong></p>
+        </article>
+
+        <article class="card reveal">
+          <span class="card__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v2H4V7Zm0 8h16v2H4v-2Zm3-6h2v6H7V9Zm4 0h2v6h-2V9Zm4 0h2v6h-2V9Z"/></svg></span>
+          <h3>Braces &amp; Aligners</h3>
+          <p>Metal, ceramic or clear aligners — straightening plans for teens and adults.</p>
+          <p class="card__price">From <strong>SAR 4,500</strong></p>
+        </article>
+
+        <article class="card reveal">
+          <span class="card__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 2h2v6h-2V2ZM8 9h8l-1 4H9L8 9Zm1.5 6h5l-.8 7h-3.4l-.8-7Z"/></svg></span>
+          <h3>Dental Implants</h3>
+          <p>Permanent titanium implants that look, feel and chew like natural teeth.</p>
+          <p class="card__price">From <strong>SAR 3,500</strong></p>
+        </article>
+
+        <article class="card reveal">
+          <span class="card__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0-6 6c0 2 1 3.4 1.8 4.6.6 1 1.2 1.8 1.2 3.4v1h6v-1c0-1.6.6-2.4 1.2-3.4C17 12.4 18 11 18 9a6 6 0 0 0-6-6Zm-3 17h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-1Z"/></svg></span>
+          <h3>Root Canal (RCT)</h3>
+          <p>Single-visit root canals with modern rotary tools — comfortable and quick.</p>
+          <p class="card__price">From <strong>SAR 750</strong></p>
+        </article>
+
+        <article class="card reveal">
+          <span class="card__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8Z"/></svg></span>
+          <h3>Emergency Care</h3>
+          <p>Severe pain, swelling or a broken tooth? Same-day relief, no appointment needed.</p>
+          <p class="card__price">Walk-in <strong>welcome</strong></p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ABOUT ============ -->
+  <section class="section section--alt" id="about">
+    <div class="container about">
+      <div class="about__visual reveal">
+        <figure class="about__photo">
+          <img src="img/about-dentists.jpg"
+               alt="Two dentists in protective gear treating a patient at the clinic" width="800" height="1000" />
+        </figure>
+        <div class="about__stat">
+          <strong>15+</strong>
+          <span>years of clinical experience</span>
+        </div>
+      </div>
+
+      <div class="about__copy reveal">
+        <p class="eyebrow">Meet your dentist</p>
+        <h2>Dr. Ayesha Khan, BDS, FCPS</h2>
+        <p>
+          Dr. Ayesha has treated over 12,000 patients across 15 years of practice,
+          with a special focus on pain-free treatment and cosmetic dentistry.
+          She believes half of dental fear comes from not knowing what's happening —
+          so every plan is explained in plain language before anything begins.
+        </p>
+        <ul class="ticks">
+          <li>Registered with the Saudi Commission for Health Specialties</li>
+          <li>Certified in Invisalign &amp; clear aligner therapy</li>
+          <li>Advanced training in implantology</li>
+          <li>Consultations available in Arabic and English</li>
+        </ul>
+        <a class="btn btn--primary" href="#appointment">Schedule a consultation</a>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ============ GALLERY ============ -->
+  <section class="section" id="gallery">
+    <div class="container">
+      <header class="section__head reveal">
+        <p class="eyebrow">Inside the clinic</p>
+        <h2>A look around, and at our work</h2>
+        <p class="section__sub">
+          Modern equipment, a calm setting, and results our patients are happy to smile about.
+        </p>
+      </header>
+
+      <div class="gallery">
+        <figure class="gallery__item gallery__item--wide reveal">
+          <img src="img/room-chair.jpg" alt="Bright treatment room with a modern dental chair" loading="lazy" width="1000" height="640" />
+          <figcaption>Our treatment rooms</figcaption>
+        </figure>
+        <figure class="gallery__item reveal">
+          <img src="img/room-equipment.jpg" alt="Modern dental office with equipment ready for a patient" loading="lazy" width="700" height="520" />
+          <figcaption>Latest equipment</figcaption>
+        </figure>
+        <figure class="gallery__item reveal">
+          <img src="img/aligners.jpg" alt="Clear dental aligners with their storage case" loading="lazy" width="700" height="520" />
+          <figcaption>Clear aligners</figcaption>
+        </figure>
+        <figure class="gallery__item reveal">
+          <img src="img/implant-model.jpg" alt="Dental implant model showing how an implant sits in the jaw" loading="lazy" width="700" height="520" />
+          <figcaption>Implant planning</figcaption>
+        </figure>
+        <figure class="gallery__item reveal">
+          <img src="img/xrays.jpg" alt="Dentist reviewing dental x-ray scans on a light box" loading="lazy" width="700" height="520" />
+          <figcaption>Digital x-rays</figcaption>
+        </figure>
+        <figure class="gallery__item gallery__item--wide reveal">
+          <img src="img/patient-smile.jpg" alt="Smiling patient after her dental treatment" loading="lazy" width="1000" height="640" />
+          <figcaption>Happy patients</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ REVIEWS ============ -->
+  <section class="section" id="reviews">
+    <div class="container">
+      <header class="section__head reveal">
+        <p class="eyebrow">Patient stories</p>
+        <h2>Rated 4.9 out of 5 by our patients</h2>
+      </header>
+
+      <div class="reviews">
+        <figure class="review reveal">
+          <div class="review__stars" aria-label="5 out of 5 stars">★★★★★</div>
+          <blockquote>I've avoided dentists for years. Got two fillings here and genuinely felt nothing. The staff explained every step before starting.</blockquote>
+          <figcaption><span class="avatar" aria-hidden="true">S</span><div><strong>Sara M.</strong><small>Fillings &amp; cleaning</small></div></figcaption>
+        </figure>
+
+        <figure class="review reveal">
+          <div class="review__stars" aria-label="5 out of 5 stars">★★★★★</div>
+          <blockquote>My son actually asks when the next appointment is. That says everything about how they treat children here.</blockquote>
+          <figcaption><span class="avatar" aria-hidden="true">B</span><div><strong>Bilal A.</strong><small>Paediatric check-up</small></div></figcaption>
+        </figure>
+
+        <figure class="review reveal">
+          <div class="review__stars" aria-label="5 out of 5 stars">★★★★★</div>
+          <blockquote>Got my implant done last year — no complications, and the cost was exactly what they quoted at the start. Highly recommended.</blockquote>
+          <figcaption><span class="avatar" aria-hidden="true">F</span><div><strong>Farhan R.</strong><small>Dental implant</small></div></figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ APPOINTMENT + CONTACT ============ -->
+  <section class="section section--alt" id="appointment">
+    <div class="container contact">
+      <div class="contact__info reveal" id="contact">
+        <p class="eyebrow">Visit us</p>
+        <h2>Book your appointment</h2>
+        <p class="section__sub">
+          Fill the form and we'll confirm your slot by phone, or simply call us
+          during clinic hours.
+        </p>
+
+        <ul class="info-list">
+          <li>
+            <span class="info-list__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z"/></svg></span>
+            <div><strong>Clinic address</strong><br />Al Rawdah District, Jeddah 23434</div>
+          </li>
+          <li>
+            <span class="info-list__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.2.4 2.4.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.4 0 .8-.2 1l-2.3 2.2Z"/></svg></span>
+            <div><strong>Phone &amp; WhatsApp</strong><br /><a href="tel:+966500000000">+966 50 000 0000</a></div>
+          </li>
+          <li>
+            <span class="info-list__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm8 7 8-5H4l8 5Z"/></svg></span>
+            <div><strong>Email</strong><br /><a href="mailto:hello@brightsmile.com">hello@brightsmile.com</a></div>
+          </li>
+        </ul>
+
+        <table class="hours">
+          <caption class="sr-only">Clinic opening hours</caption>
+          <tbody>
+            <tr><th scope="row">Saturday – Thursday</th><td>10:00 AM – 10:00 PM</td></tr>
+            <tr><th scope="row">Friday</th><td>4:00 PM – 10:00 PM</td></tr>
+            <tr><th scope="row">Public holidays</th><td class="hours__closed">By appointment</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="contact__form reveal">
+        <form id="appointmentForm" novalidate>
+          <div class="field">
+            <label for="name">Full name</label>
+            <input type="text" id="name" name="name" placeholder="e.g. Ahmed Al-Otaibi" required />
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label for="phone">Phone number</label>
+              <input type="tel" id="phone" name="phone" placeholder="05x xxx xxxx" required />
+            </div>
+            <div class="field">
+              <label for="date">Preferred date</label>
+              <input type="date" id="date" name="date" required />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="service">Service needed</label>
+            <select id="service" name="service">
+              <option value="">Select a service</option>
+              <option>General check-up / cleaning</option>
+              <option>Teeth whitening</option>
+              <option>Braces or aligners</option>
+              <option>Dental implant</option>
+              <option>Root canal (RCT)</option>
+              <option>Emergency / tooth pain</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="message">Anything we should know? <span class="optional">(optional)</span></label>
+            <textarea id="message" name="message" rows="4" placeholder="Describe your symptoms or preferred timing"></textarea>
+          </div>
+
+          <button class="btn btn--primary btn--block btn--lg" type="submit">Request appointment</button>
+          <p class="form-note">We'll call you back within a few hours to confirm.</p>
+          <p class="form-status" id="formStatus" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CTA ============ -->
+  <section class="cta">
+    <div class="container cta__inner reveal">
+      <div>
+        <h2>In pain right now?</h2>
+        <p>Don't wait it out. Call us and we'll get you seen today.</p>
+      </div>
+      <a class="btn btn--light btn--lg" href="tel:+966500000000">Call +966 50 000 0000</a>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============ FOOTER ============ -->
+<footer class="footer">
+  <div class="container footer__grid">
+    <div class="footer__brand">
+      <a class="logo logo--light" href="#home">
+        <span class="logo__mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32"><path d="M16 5c-2 0-3-1.4-6-1.4C6.4 3.6 4 6.6 4 11c0 5 2.2 7.6 3.2 11.3.7 2.6 1.3 5.1 3 5.1 1.9 0 2.2-2.6 2.9-5.6.5-2 1.2-3 2.9-3s2.4 1 2.9 3c.7 3 1 5.6 2.9 5.6 1.7 0 2.3-2.5 3-5.1C25.8 18.6 28 16 28 11c0-4.4-2.4-7.4-6-7.4-3 0-4 1.4-6 1.4Z"/></svg>
+        </span>
+        <span class="logo__text">Bright<strong>Smile</strong><small>Dental Clinic</small></span>
+      </a>
+      <p>Gentle, modern dentistry for the whole family — trusted by thousands of patients since 2010.</p>
+    </div>
+
+    <nav class="footer__col" aria-label="Services">
+      <h4>Services</h4>
+      <ul>
+        <li><a href="#services">General dentistry</a></li>
+        <li><a href="#services">Teeth whitening</a></li>
+        <li><a href="#services">Braces &amp; aligners</a></li>
+        <li><a href="#services">Dental implants</a></li>
+        <li><a href="#services">Emergency care</a></li>
+      </ul>
+    </nav>
+
+    <nav class="footer__col" aria-label="Clinic">
+      <h4>Clinic</h4>
+      <ul>
+        <li><a href="#about">About the dentist</a></li>
+        <li><a href="#gallery">Clinic gallery</a></li>
+        <li><a href="#reviews">Patient reviews</a></li>
+        <li><a href="#appointment">Book appointment</a></li>
+        <li><a href="#contact">Contact &amp; hours</a></li>
+      </ul>
+    </nav>
+
+    <div class="footer__col">
+      <h4>Get in touch</h4>
+      <ul>
+        <li><a href="tel:+966500000000">+966 50 000 0000</a></li>
+        <li><a href="mailto:hello@brightsmile.com">hello@brightsmile.com</a></li>
+        <li>Al Rawdah District,<br />Jeddah 23434</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="container footer__bottom">
+    <p>&copy; <span id="year">2026</span> BrightSmile Dental Clinic. All rights reserved.</p>
+    <p>Sat–Thu · 10:00 AM – 10:00 PM</p>
+  </div>
+</footer>
+
+<a class="fab" href="#appointment" aria-label="Book an appointment">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2h2v2h6V2h2v2h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2V2ZM5 10v10h14V10H5Z"/></svg>
+  <span>Book</span>
+</a>
+
+<script>
+/* =========================================================
+   BrightSmile Dental — interactions
+   ========================================================= */
+(function () {
+  "use strict";
+
+  /* ---- Mobile navigation ---- */
+  var toggle = document.getElementById("navToggle");
+  var nav = document.getElementById("nav");
+
+  function closeNav() {
+    nav.classList.remove("is-open");
+    toggle.setAttribute("aria-expanded", "false");
+  }
+
+  toggle.addEventListener("click", function () {
+    var open = nav.classList.toggle("is-open");
+    toggle.setAttribute("aria-expanded", String(open));
+  });
+
+  nav.addEventListener("click", function (e) {
+    if (e.target.closest("a")) closeNav();
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") closeNav();
+  });
+
+  /* ---- Header shadow on scroll ---- */
+  var header = document.getElementById("header");
+  function onScroll() {
+    header.classList.toggle("is-stuck", window.scrollY > 8);
+  }
+  onScroll();
+  window.addEventListener("scroll", onScroll, { passive: true });
+
+  /* ---- Highlight the section currently in view ---- */
+  var links = Array.prototype.slice.call(document.querySelectorAll(".nav__link"));
+  var sections = links
+    .map(function (link) { return document.querySelector(link.getAttribute("href")); })
+    .filter(Boolean);
+
+  if ("IntersectionObserver" in window && sections.length) {
+    var spy = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        links.forEach(function (link) {
+          link.classList.toggle("is-active", link.getAttribute("href") === "#" + entry.target.id);
+        });
+      });
+    }, { rootMargin: "-45% 0px -50% 0px" });
+
+    sections.forEach(function (section) { spy.observe(section); });
+  }
+
+  /* ---- Reveal elements as they enter the viewport ---- */
+  var revealables = document.querySelectorAll(".reveal");
+  if ("IntersectionObserver" in window) {
+    var revealer = new IntersectionObserver(function (entries, observer) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add("is-visible");
+        observer.unobserve(entry.target);
+      });
+    }, { threshold: 0.12 });
+
+    revealables.forEach(function (el) { revealer.observe(el); });
+  } else {
+    revealables.forEach(function (el) { el.classList.add("is-visible"); });
+  }
+
+  /* ---- Appointment form (UI only — no backend) ---- */
+  var form = document.getElementById("appointmentForm");
+  var status = document.getElementById("formStatus");
+  var dateInput = document.getElementById("date");
+
+  // Don't allow past dates.
+  if (dateInput) {
+    dateInput.min = new Date().toISOString().split("T")[0];
+  }
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+
+    var required = ["name", "phone", "date"];
+    var firstInvalid = null;
+
+    required.forEach(function (id) {
+      var field = document.getElementById(id);
+      var empty = !field.value.trim();
+      field.setAttribute("aria-invalid", String(empty));
+      if (empty && !firstInvalid) firstInvalid = field;
+    });
+
+    if (firstInvalid) {
+      status.textContent = "Please fill in your name, phone number and preferred date.";
+      status.className = "form-status is-error";
+      firstInvalid.focus();
+      return;
+    }
+
+    var name = document.getElementById("name").value.trim().split(" ")[0];
+    status.textContent = "Thanks " + name + "! Your request is noted — we'll call you shortly to confirm.";
+    status.className = "form-status is-ok";
+    form.reset();
+    if (dateInput) dateInput.min = new Date().toISOString().split("T")[0];
+  });
+
+  /* ---- Footer year ---- */
+  var year = document.getElementById("year");
+  if (year) year.textContent = String(new Date().getFullYear());
+})();
+
+</script>
+</body>
+</html>
