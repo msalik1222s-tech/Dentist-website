@@ -951,10 +951,11 @@ a.topbar__item:hover { color: #fff; }
     revealables.forEach(function (el) { el.classList.add("is-visible"); });
   }
 
-  /* ---- Appointment form (UI only — no backend) ---- */
+  /* ---- Appointment form ---- */
   var form = document.getElementById("appointmentForm");
   var status = document.getElementById("formStatus");
   var dateInput = document.getElementById("date");
+  var submitBtn = form ? form.querySelector("button[type=submit]") : null;
 
   // Don't allow past dates.
   if (dateInput) {
@@ -981,11 +982,42 @@ a.topbar__item:hover { color: #fff; }
       return;
     }
 
-    var name = document.getElementById("name").value.trim().split(" ")[0];
-    status.textContent = "Thanks " + name + "! Your request is noted — we'll call you shortly to confirm.";
-    status.className = "form-status is-ok";
-    form.reset();
-    if (dateInput) dateInput.min = new Date().toISOString().split("T")[0];
+    var payload = {
+      name: document.getElementById("name").value.trim(),
+      phone: document.getElementById("phone").value.trim(),
+      date: document.getElementById("date").value.trim(),
+      service: document.getElementById("service").value.trim(),
+      message: document.getElementById("message").value.trim(),
+    };
+
+    if (submitBtn) submitBtn.disabled = true;
+    status.textContent = "Sending...";
+    status.className = "form-status";
+
+    fetch("/api/appointments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+      .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+      .then(function (res) {
+        if (!res.ok) {
+          status.textContent = res.data.error || "Something went wrong. Please call us instead.";
+          status.className = "form-status is-error";
+          return;
+        }
+        status.textContent = res.data.message;
+        status.className = "form-status is-ok";
+        form.reset();
+        if (dateInput) dateInput.min = new Date().toISOString().split("T")[0];
+      })
+      .catch(function () {
+        status.textContent = "Network error — please call us instead.";
+        status.className = "form-status is-error";
+      })
+      .finally(function () {
+        if (submitBtn) submitBtn.disabled = false;
+      });
   });
 
   /* ---- Footer year ---- */

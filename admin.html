@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Appointment Requests — Admin</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 960px; margin: 2rem auto; padding: 0 1rem; color: #1c2b2a; }
+  h1 { font-size: 1.4rem; }
+  #keyBar { display: flex; gap: .5rem; margin-bottom: 1.5rem; }
+  #keyBar input { flex: 1; padding: .5rem .7rem; border: 1px solid #ccc; border-radius: 6px; }
+  #keyBar button { padding: .5rem 1rem; border: none; border-radius: 6px; background: #0f7a6e; color: #fff; cursor: pointer; }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  th, td { text-align: left; padding: .6rem .5rem; border-bottom: 1px solid #e4e4e4; vertical-align: top; }
+  th { background: #f5f7f6; }
+  #status { color: #a3342b; margin-bottom: 1rem; }
+</style>
+</head>
+<body>
+  <h1>Appointment requests</h1>
+  <div id="keyBar">
+    <input id="key" type="password" placeholder="Admin key" />
+    <button id="load">Load</button>
+  </div>
+  <p id="status"></p>
+  <table id="results" hidden>
+    <thead>
+      <tr><th>Submitted</th><th>Name</th><th>Phone</th><th>Preferred date</th><th>Service</th><th>Message</th></tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+<script>
+  var keyInput = document.getElementById("key");
+  var status = document.getElementById("status");
+  var table = document.getElementById("results");
+  var rows = document.getElementById("rows");
+
+  var savedKey = sessionStorage.getItem("adminKey");
+  if (savedKey) keyInput.value = savedKey;
+
+  function escapeHtml(s) {
+    return String(s || "").replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function load() {
+    var key = keyInput.value.trim();
+    if (!key) { status.textContent = "Enter the admin key."; return; }
+    sessionStorage.setItem("adminKey", key);
+    status.textContent = "Loading...";
+    table.hidden = true;
+
+    fetch("/api/appointments", { headers: { "x-admin-key": key } })
+      .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+      .then(function (res) {
+        if (!res.ok) {
+          status.textContent = res.data.error || "Failed to load.";
+          return;
+        }
+        status.textContent = res.data.appointments.length + " request(s).";
+        rows.innerHTML = res.data.appointments.map(function (a) {
+          return "<tr>" +
+            "<td>" + escapeHtml(new Date(a.createdAt).toLocaleString()) + "</td>" +
+            "<td>" + escapeHtml(a.name) + "</td>" +
+            "<td>" + escapeHtml(a.phone) + "</td>" +
+            "<td>" + escapeHtml(a.date) + "</td>" +
+            "<td>" + escapeHtml(a.service) + "</td>" +
+            "<td>" + escapeHtml(a.message) + "</td>" +
+            "</tr>";
+        }).join("");
+        table.hidden = false;
+      })
+      .catch(function () { status.textContent = "Network error."; });
+  }
+
+  document.getElementById("load").addEventListener("click", load);
+  if (savedKey) load();
+</script>
+</body>
+</html>
