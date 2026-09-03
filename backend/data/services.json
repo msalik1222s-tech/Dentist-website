@@ -1,0 +1,44 @@
+[
+  {
+    "id": "general",
+    "name": "General Dentistry",
+    "description": "Check-ups, scaling, fillings and fluoride treatment to keep problems small.",
+    "startingPrice": 150,
+    "priceLabel": "From SAR 150"
+  },
+  {
+    "id": "whitening",
+    "name": "Teeth Whitening",
+    "description": "Safe in-clinic whitening that brightens several shades in one sitting.",
+    "startingPrice": 800,
+    "priceLabel": "From SAR 800"
+  },
+  {
+    "id": "braces",
+    "name": "Braces & Aligners",
+    "description": "Metal, ceramic or clear aligners — straightening plans for teens and adults.",
+    "startingPrice": 4500,
+    "priceLabel": "From SAR 4,500"
+  },
+  {
+    "id": "implants",
+    "name": "Dental Implants",
+    "description": "Permanent titanium implants that look, feel and chew like natural teeth.",
+    "startingPrice": 3500,
+    "priceLabel": "From SAR 3,500"
+  },
+  {
+    "id": "rct",
+    "name": "Root Canal (RCT)",
+    "description": "Single-visit root canals with modern rotary tools — comfortable and quick.",
+    "startingPrice": 750,
+    "priceLabel": "From SAR 750"
+  },
+  {
+    "id": "emergency",
+    "name": "Emergency Care",
+    "description": "Severe pain, swelling or a broken tooth? Same-day relief, no appointment needed.",
+    "startingPrice": null,
+    "priceLabel": "Walk-in welcome"
+  }
+]

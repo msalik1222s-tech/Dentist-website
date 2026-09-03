@@ -1,0 +1,12 @@
+{
+  "name": "Bright Smile Dental Clinic",
+  "dentist": "Dr. Asad",
+  "hoursLabel": "9:00 AM – 9:00 PM, every day",
+  "openHour": 9,
+  "closeHour": 21,
+  "slotMinutes": 30,
+  "phone": "+966 50 000 0000",
+  "email": "hello@brightsmile.com",
+  "address": "Al Rawdah District, Jeddah 23434",
+  "currency": "SAR"
+}

@@ -4,6 +4,7 @@ const express = require("express");
 const fs = require("fs");
 const path = require("path");
 const nodemailer = require("nodemailer");
+const chat = require("./chat");
 
 const ROOT = path.join(__dirname, "..");
 const DATA_FILE = path.join(__dirname, "data", "appointments.json");
@@ -64,16 +65,22 @@ async function notifyClinic(entry) {
 }
 
 // ---------- simple in-memory rate limiting ----------
-const submissionsByIp = new Map();
-const WINDOW_MS = 10 * 60 * 1000;
-const MAX_PER_WINDOW = 5;
+function makeRateLimiter(windowMs, maxPerWindow) {
+  const hits = new Map();
+  return function isRateLimited(ip) {
+    const now = Date.now();
+    const timestamps = (hits.get(ip) || []).filter((t) => now - t < windowMs);
+    timestamps.push(now);
+    hits.set(ip, timestamps);
+    return timestamps.length > maxPerWindow;
+  };
+}
 
-function isRateLimited(ip) {
-  const now = Date.now();
-  const timestamps = (submissionsByIp.get(ip) || []).filter((t) => now - t < WINDOW_MS);
-  timestamps.push(now);
-  submissionsByIp.set(ip, timestamps);
-  return timestamps.length > MAX_PER_WINDOW;
+const isRateLimited = makeRateLimiter(10 * 60 * 1000, 5);
+const isChatRateLimited = makeRateLimiter(60 * 1000, 15);
+
+function getClientIp(req) {
+  return req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown";
 }
 
 // ---------- validation ----------
@@ -100,7 +107,7 @@ function validate(body) {
 
 // ---------- routes ----------
 app.post("/api/appointments", async (req, res) => {
-  const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown";
+  const ip = getClientIp(req);
   if (isRateLimited(ip)) {
     return res.status(429).json({ ok: false, error: "Too many requests. Please try again later." });
   }
@@ -138,8 +145,45 @@ app.get("/api/appointments", requireAdmin, (req, res) => {
   res.json({ ok: true, appointments: list });
 });
 
+function sanitizeChatMessages(input) {
+  if (!Array.isArray(input)) return null;
+  const cleaned = input
+    .filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+    .map((m) => ({ role: m.role, content: m.content.slice(0, 2000) }))
+    .slice(-20);
+  if (!cleaned.length || cleaned[cleaned.length - 1].role !== "user") return null;
+  return cleaned;
+}
+
+app.post("/api/chat", async (req, res) => {
+  const ip = getClientIp(req);
+  if (isChatRateLimited(ip)) {
+    return res.status(429).json({ ok: false, error: "Too many messages. Please slow down a little." });
+  }
+
+  const messages = sanitizeChatMessages(req.body && req.body.messages);
+  if (!messages) {
+    return res.status(400).json({ ok: false, error: "Please provide a valid message." });
+  }
+
+  try {
+    const reply = await chat.respond(messages);
+    res.json({ ok: true, reply });
+  } catch (err) {
+    if (err.message === "CHAT_NOT_CONFIGURED") {
+      return res.status(503).json({
+        ok: false,
+        error: "The chat assistant isn't set up yet — please call the clinic directly.",
+      });
+    }
+    console.error("Chat error:", err);
+    res.status(500).json({ ok: false, error: "Something went wrong. Please try again or call the clinic." });
+  }
+});
+
 app.listen(PORT, () => {
   console.log("BrightSmile backend running at http://localhost:" + PORT);
   if (!transporter) console.log("Email notifications disabled (set SMTP_HOST in .env to enable).");
   if (!ADMIN_KEY) console.log("WARNING: ADMIN_KEY not set — /api/appointments admin view is locked out.");
+  if (!process.env.ANTHROPIC_API_KEY) console.log("WARNING: ANTHROPIC_API_KEY not set — the chat assistant is disabled.");
 });
