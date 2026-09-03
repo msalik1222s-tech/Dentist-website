@@ -1,28 +1,17 @@
-const fs = require("fs");
-const path = require("path");
+const db = require("./db");
 
-const DATA_FILE = path.join(__dirname, "data", "appointments.json");
 const CLINIC = require("./data/clinic.json");
 const SERVICES = require("./data/services.json");
-
-function loadAppointments() {
-  try {
-    return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
-  } catch {
-    return [];
-  }
-}
-
-function saveAppointments(list) {
-  fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
-  fs.writeFileSync(DATA_FILE, JSON.stringify(list, null, 2));
-}
 
 // Strips newlines/control characters so patient-supplied text can't break
 // out of a single line (e.g. email header/subject injection via the name
 // field, or garbled rows in admin.html).
 function stripControlChars(s) {
   return String(s || "").replace(/[\r\n\t\x00-\x1f\x7f]+/g, " ").trim();
+}
+
+function phoneDigits(phone) {
+  return String(phone || "").replace(/[^0-9]/g, "");
 }
 
 function getClinicInfo() {
@@ -77,43 +66,50 @@ function getClinicNow() {
   };
 }
 
-function getAvailableSlots(date) {
-  if (!isValidDate(date)) return [];
-  const { dateStr: todayStr, minutesSinceMidnight: nowMinutes } = getClinicNow();
-  if (date < todayStr) return [];
-
-  const all = loadAppointments();
-  const booked = new Set(
-    all
-      .filter((a) => a.date === date && a.status !== "cancelled" && a.time)
-      .map((a) => a.time)
-  );
-  let slots = generateDaySlots().filter((t) => !booked.has(t));
-
-  if (date === todayStr) {
-    slots = slots.filter((t) => {
-      const [h, m] = t.split(":").map(Number);
-      return h * 60 + m > nowMinutes;
-    });
-  }
-
-  return slots;
-}
-
-function isSlotAvailable(date, time) {
-  return getAvailableSlots(date).includes(time);
-}
-
 function addDays(dateStr, days) {
   const dt = parseDateStrict(dateStr);
   dt.setUTCDate(dt.getUTCDate() + days);
   return dt.toISOString().slice(0, 10);
 }
 
-function findNextAvailable({ fromDate, time, maxDays = 30 }) {
-  let date = isValidDate(fromDate) ? fromDate : getClinicNow().dateStr;
+// Shared by getAvailableSlots and findNextAvailable so both apply the same
+// "no slots in the past, none earlier than right now on today" rules.
+function openSlotsFor(date, bookedTimes, clinicNow) {
+  if (date < clinicNow.dateStr) return [];
+  const booked = new Set(bookedTimes || []);
+  let slots = generateDaySlots().filter((t) => !booked.has(t));
+  if (date === clinicNow.dateStr) {
+    slots = slots.filter((t) => {
+      const [h, m] = t.split(":").map(Number);
+      return h * 60 + m > clinicNow.minutesSinceMidnight;
+    });
+  }
+  return slots;
+}
+
+async function getAvailableSlots(date) {
+  if (!isValidDate(date)) return [];
+  const clinicNow = getClinicNow();
+  if (date < clinicNow.dateStr) return [];
+  return openSlotsFor(date, await db.getBookedTimes(date), clinicNow);
+}
+
+async function isSlotAvailable(date, time) {
+  return (await getAvailableSlots(date)).includes(time);
+}
+
+async function findNextAvailable({ fromDate, time, maxDays = 30 }) {
+  const clinicNow = getClinicNow();
+  let start = isValidDate(fromDate) ? fromDate : clinicNow.dateStr;
+  if (start < clinicNow.dateStr) start = clinicNow.dateStr;
+  const end = addDays(start, maxDays - 1);
+
+  // Single query for the whole window instead of one per day.
+  const bookedByDate = await db.getBookedTimesByRange(start, end);
+
+  let date = start;
   for (let i = 0; i < maxDays; i++) {
-    const slots = getAvailableSlots(date);
+    const slots = openSlotsFor(date, bookedByDate.get(date), clinicNow);
     if (time) {
       if (slots.includes(time)) return { date, time };
     } else if (slots.length) {
@@ -124,18 +120,20 @@ function findNextAvailable({ fromDate, time, maxDays = 30 }) {
   return null;
 }
 
-function createAppointment({ name, phone, service, date, time, message, source, status }) {
+async function createAppointment({ name, phone, service, date, time, message, source, status }) {
   if (!name || !String(name).trim()) throw new Error("Patient name is required.");
   if (!phone || !String(phone).trim()) throw new Error("Phone number is required.");
   if (!isValidDate(date)) throw new Error("Invalid date format. Use YYYY-MM-DD.");
   if (!isValidTime(time)) throw new Error("Invalid or out-of-hours time slot.");
   if (date < getClinicNow().dateStr) throw new Error("Cannot book an appointment in the past.");
-  if (!isSlotAvailable(date, time)) throw new Error("That slot is already booked.");
+  if (!(await isSlotAvailable(date, time))) throw new Error("That slot is already booked.");
 
+  const cleanPhone = stripControlChars(phone).slice(0, 30);
   const entry = {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
     name: stripControlChars(name).slice(0, 100),
-    phone: stripControlChars(phone).slice(0, 30),
+    phone: cleanPhone,
+    phoneDigits: phoneDigits(cleanPhone),
     service: stripControlChars(service || "").slice(0, 100),
     date,
     time,
@@ -145,48 +143,68 @@ function createAppointment({ name, phone, service, date, time, message, source, 
     createdAt: new Date().toISOString(),
   };
 
-  const list = loadAppointments();
-  list.push(entry);
-  saveAppointments(list);
-  return entry;
+  try {
+    return await db.insertAppointment(entry);
+  } catch (err) {
+    // The check above can lose a race against a booking on another instance;
+    // the database's unique index is what actually decides.
+    if (err.message === "SLOT_TAKEN") throw new Error("That slot is already booked.");
+    throw err;
+  }
 }
 
-function findAppointmentsByPhone(phone) {
-  const p = String(phone || "").replace(/[^0-9]/g, "");
+async function findAppointmentsByPhone(phone) {
+  const p = phoneDigits(phone);
   if (!p) return [];
-  return loadAppointments().filter(
-    (a) => String(a.phone || "").replace(/[^0-9]/g, "") === p && a.status !== "cancelled"
-  );
+  return db.findByPhoneDigits(p);
 }
 
-function rescheduleAppointment({ id, newDate, newTime }) {
-  const list = loadAppointments();
-  const appt = list.find((a) => a.id === id);
+async function rescheduleAppointment({ id, newDate, newTime }) {
+  const appt = await db.getAppointmentById(id);
   if (!appt) throw new Error("Appointment not found.");
   if (appt.status === "cancelled") throw new Error("This appointment was already cancelled.");
   if (!isValidDate(newDate)) throw new Error("Invalid date format. Use YYYY-MM-DD.");
   if (!isValidTime(newTime)) throw new Error("Invalid or out-of-hours time slot.");
   if (newDate < getClinicNow().dateStr) throw new Error("Cannot reschedule to a date in the past.");
+
   const sameSlot = appt.date === newDate && appt.time === newTime;
-  if (!sameSlot && !isSlotAvailable(newDate, newTime)) {
+  if (!sameSlot && !(await isSlotAvailable(newDate, newTime))) {
     throw new Error("That slot is already booked.");
   }
-  appt.date = newDate;
-  appt.time = newTime;
-  appt.updatedAt = new Date().toISOString();
-  saveAppointments(list);
-  return appt;
+
+  let updated;
+  try {
+    updated = await db.updateAppointmentSchedule(id, newDate, newTime, new Date().toISOString());
+  } catch (err) {
+    if (err.message === "SLOT_TAKEN") throw new Error("That slot is already booked.");
+    throw err;
+  }
+  if (!updated) throw new Error("This appointment was already cancelled.");
+  return updated;
 }
 
-function cancelAppointment({ id }) {
-  const list = loadAppointments();
-  const appt = list.find((a) => a.id === id);
+async function cancelAppointment({ id }) {
+  const appt = await db.getAppointmentById(id);
   if (!appt) throw new Error("Appointment not found.");
-  if (appt.status === "cancelled") throw new Error("This appointment was already cancelled.");
-  appt.status = "cancelled";
-  appt.updatedAt = new Date().toISOString();
-  saveAppointments(list);
-  return appt;
+  const cancelled = await db.cancelAppointmentById(id, new Date().toISOString());
+  if (!cancelled) throw new Error("This appointment was already cancelled.");
+  return cancelled;
+}
+
+function loadAppointments() {
+  return db.listAppointments();
+}
+
+// Returns true when this ip has already used up its allowance for the bucket.
+async function isRateLimited(bucket, ip, windowMs, maxPerWindow) {
+  try {
+    const priorHits = await db.countRateLimitHits(bucket, ip, windowMs);
+    return priorHits >= maxPerWindow;
+  } catch (err) {
+    // Never let a rate-limit lookup take the whole endpoint down.
+    console.error("Rate limit check failed:", err.message);
+    return false;
+  }
 }
 
 module.exports = {
@@ -202,7 +220,7 @@ module.exports = {
   rescheduleAppointment,
   cancelAppointment,
   loadAppointments,
-  saveAppointments,
+  isRateLimited,
   isValidDate,
   isValidTime,
 };

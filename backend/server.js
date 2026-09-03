@@ -1,154 +1,25 @@
+// Local development entry point. On Vercel the app is served by api/index.js
+// instead — this file is never run there.
+
 const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, ".env") });
 
-const express = require("express");
-const chat = require("./chat");
-const store = require("./store");
+const { createApp } = require("./app");
 const mailer = require("./mailer");
+const db = require("./db");
 
-const ROOT = path.join(__dirname, "..");
 const PORT = process.env.PORT || 5500;
-const ADMIN_KEY = process.env.ADMIN_KEY || "";
 
-const app = express();
-app.use(express.json());
-app.use(express.static(ROOT, { extensions: ["html"] }));
-
-// ---------- simple in-memory rate limiting ----------
-function makeRateLimiter(windowMs, maxPerWindow) {
-  const hits = new Map();
-  return function isRateLimited(ip) {
-    const now = Date.now();
-    const timestamps = (hits.get(ip) || []).filter((t) => now - t < windowMs);
-    timestamps.push(now);
-    hits.set(ip, timestamps);
-    return timestamps.length > maxPerWindow;
-  };
-}
-
-const isRateLimited = makeRateLimiter(10 * 60 * 1000, 5);
-const isChatRateLimited = makeRateLimiter(60 * 1000, 15);
-const isAvailabilityRateLimited = makeRateLimiter(60 * 1000, 30);
-
-function getClientIp(req) {
-  return req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown";
-}
-
-// ---------- validation ----------
-function validate(body) {
-  const errors = [];
-  const name = String(body.name || "").trim();
-  const phone = String(body.phone || "").trim();
-  const date = String(body.date || "").trim();
-  const time = String(body.time || "").trim();
-  const service = String(body.service || "").trim();
-  const message = String(body.message || "").trim();
-
-  if (!name || name.length > 100) errors.push("Please provide a valid name.");
-  if (!phone || phone.replace(/[^0-9+]/g, "").length < 7 || phone.length > 30) {
-    errors.push("Please provide a valid phone number.");
-  }
-  if (!date || !store.isValidDate(date)) {
-    errors.push("Please provide a valid preferred date.");
-  } else if (date < store.getClinicNow().dateStr) {
-    errors.push("Preferred date can't be in the past.");
-  }
-  if (!time || !store.isValidTime(time)) {
-    errors.push("Please choose an available appointment time.");
-  }
-  if (service.length > 100) errors.push("Service value is too long.");
-  if (message.length > 1000) errors.push("Message is too long (max 1000 characters).");
-
-  return { errors, clean: { name, phone, date, time, service, message } };
-}
-
-// ---------- routes ----------
-app.get("/api/availability", (req, res) => {
-  if (isAvailabilityRateLimited(getClientIp(req))) {
-    return res.status(429).json({ ok: false, error: "Too many requests. Please try again shortly." });
-  }
-  const date = String(req.query.date || "").trim();
-  if (!store.isValidDate(date)) {
-    return res.status(400).json({ ok: false, error: "Please provide a valid date (YYYY-MM-DD)." });
-  }
-  res.json({ ok: true, date, slots: store.getAvailableSlots(date) });
-});
-
-app.post("/api/appointments", async (req, res) => {
-  const ip = getClientIp(req);
-  if (isRateLimited(ip)) {
-    return res.status(429).json({ ok: false, error: "Too many requests. Please try again later." });
-  }
-
-  const { errors, clean } = validate(req.body || {});
-  if (errors.length) {
-    return res.status(400).json({ ok: false, error: errors[0] });
-  }
-
-  let entry;
-  try {
-    entry = store.createAppointment({ ...clean, source: "form", status: "pending" });
-  } catch (err) {
-    return res.status(409).json({ ok: false, error: err.message });
-  }
-
-  mailer.notifyNewAppointment(entry);
-
-  res.status(201).json({ ok: true, message: `Thanks ${clean.name.split(" ")[0]}! Your request is noted — we'll call you shortly to confirm.` });
-});
-
-function requireAdmin(req, res, next) {
-  const key = req.headers["x-admin-key"] || req.query.key;
-  if (!ADMIN_KEY || key !== ADMIN_KEY) {
-    return res.status(401).json({ ok: false, error: "Unauthorized." });
-  }
-  next();
-}
-
-app.get("/api/appointments", requireAdmin, (req, res) => {
-  const list = store.loadAppointments().sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  res.json({ ok: true, appointments: list });
-});
-
-function sanitizeChatMessages(input) {
-  if (!Array.isArray(input)) return null;
-  const cleaned = input
-    .filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
-    .map((m) => ({ role: m.role, content: m.content.slice(0, 2000) }))
-    .slice(-20);
-  if (!cleaned.length || cleaned[cleaned.length - 1].role !== "user") return null;
-  return cleaned;
-}
-
-app.post("/api/chat", async (req, res) => {
-  const ip = getClientIp(req);
-  if (isChatRateLimited(ip)) {
-    return res.status(429).json({ ok: false, error: "Too many messages. Please slow down a little." });
-  }
-
-  const messages = sanitizeChatMessages(req.body && req.body.messages);
-  if (!messages) {
-    return res.status(400).json({ ok: false, error: "Please provide a valid message." });
-  }
-
-  try {
-    const reply = await chat.respond(messages);
-    res.json({ ok: true, reply });
-  } catch (err) {
-    if (err.message === "CHAT_NOT_CONFIGURED") {
-      return res.status(503).json({
-        ok: false,
-        error: "The chat assistant isn't set up yet — please call the clinic directly.",
-      });
-    }
-    console.error("Chat error:", err);
-    res.status(500).json({ ok: false, error: "Something went wrong. Please try again or call the clinic." });
-  }
-});
+const app = createApp({ serveStatic: true });
 
 app.listen(PORT, () => {
   console.log("BrightSmile backend running at http://localhost:" + PORT);
+  console.log(
+    db.isPostgres
+      ? "Storage: Postgres (DATABASE_URL)"
+      : "Storage: backend/data/appointments.json (set DATABASE_URL to use Postgres)"
+  );
   if (!mailer.isEnabled()) console.log("Email notifications disabled (set SMTP_HOST in .env to enable).");
-  if (!ADMIN_KEY) console.log("WARNING: ADMIN_KEY not set — /api/appointments admin view is locked out.");
+  if (!process.env.ADMIN_KEY) console.log("WARNING: ADMIN_KEY not set — /api/appointments admin view is locked out.");
   if (!process.env.ANTHROPIC_API_KEY) console.log("WARNING: ANTHROPIC_API_KEY not set — the chat assistant is disabled.");
 });
