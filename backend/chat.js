@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const Anthropic = require("@anthropic-ai/sdk");
 const store = require("./store");
+const mailer = require("./mailer");
 
 const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
 const MASTER_PROMPT = fs.readFileSync(path.join(__dirname, "data", "system-prompt.txt"), "utf8");
@@ -167,6 +168,7 @@ function runTool(name, input) {
           time: input.time,
           message: input.message,
         });
+        mailer.notifyNewAppointment(entry);
         return { success: true, appointment: entry };
       }
 
@@ -179,11 +181,13 @@ function runTool(name, input) {
           newDate: input.new_date,
           newTime: input.new_time,
         });
+        mailer.notifyAppointmentChange("rescheduled", appt);
         return { success: true, appointment: appt };
       }
 
       case "cancel_appointment": {
         const appt = store.cancelAppointment({ id: input.id });
+        mailer.notifyAppointmentChange("cancelled", appt);
         return { success: true, appointment: appt };
       }
 

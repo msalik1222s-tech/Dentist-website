@@ -18,22 +18,19 @@ function saveAppointments(list) {
   fs.writeFileSync(DATA_FILE, JSON.stringify(list, null, 2));
 }
 
+// Strips newlines/control characters so patient-supplied text can't break
+// out of a single line (e.g. email header/subject injection via the name
+// field, or garbled rows in admin.html).
+function stripControlChars(s) {
+  return String(s || "").replace(/[\r\n\t\x00-\x1f\x7f]+/g, " ").trim();
+}
+
 function getClinicInfo() {
   return CLINIC;
 }
 
 function getServices() {
   return SERVICES;
-}
-
-function getServiceByName(name) {
-  const n = String(name || "").trim().toLowerCase();
-  if (!n) return null;
-  return (
-    SERVICES.find((s) => s.id === n || s.name.toLowerCase() === n) ||
-    SERVICES.find((s) => s.name.toLowerCase().includes(n) || n.includes(s.name.toLowerCase())) ||
-    null
-  );
 }
 
 // Parses a strict YYYY-MM-DD string as a real calendar date (rejects
@@ -137,12 +134,12 @@ function createAppointment({ name, phone, service, date, time, message, source, 
 
   const entry = {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
-    name: String(name).trim(),
-    phone: String(phone).trim(),
-    service: String(service || "").trim(),
+    name: stripControlChars(name).slice(0, 100),
+    phone: stripControlChars(phone).slice(0, 30),
+    service: stripControlChars(service || "").slice(0, 100),
     date,
     time,
-    message: String(message || "").trim(),
+    message: String(message || "").replace(/\r\n?/g, "\n").trim().slice(0, 1000),
     status: status || "confirmed",
     source: source || "chat",
     createdAt: new Date().toISOString(),
@@ -195,7 +192,6 @@ function cancelAppointment({ id }) {
 module.exports = {
   getClinicInfo,
   getServices,
-  getServiceByName,
   getClinicNow,
   generateDaySlots,
   getAvailableSlots,

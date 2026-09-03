@@ -2,9 +2,9 @@ const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, ".env") });
 
 const express = require("express");
-const nodemailer = require("nodemailer");
 const chat = require("./chat");
 const store = require("./store");
+const mailer = require("./mailer");
 
 const ROOT = path.join(__dirname, "..");
 const PORT = process.env.PORT || 5500;
@@ -13,42 +13,6 @@ const ADMIN_KEY = process.env.ADMIN_KEY || "";
 const app = express();
 app.use(express.json());
 app.use(express.static(ROOT, { extensions: ["html"] }));
-
-// ---------- mailer (optional) ----------
-let transporter = null;
-if (process.env.SMTP_HOST) {
-  transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT) || 587,
-    secure: Number(process.env.SMTP_PORT) === 465,
-    auth: process.env.SMTP_USER
-      ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
-      : undefined,
-  });
-}
-
-async function notifyClinic(entry) {
-  if (!transporter || !process.env.CLINIC_EMAIL) return;
-  try {
-    await transporter.sendMail({
-      from: process.env.FROM_EMAIL || process.env.SMTP_USER,
-      to: process.env.CLINIC_EMAIL,
-      replyTo: undefined,
-      subject: `New appointment request — ${entry.name}`,
-      text: [
-        `Name: ${entry.name}`,
-        `Phone: ${entry.phone}`,
-        `Preferred date: ${entry.date}`,
-        `Preferred time: ${entry.time || "-"}`,
-        `Service: ${entry.service || "-"}`,
-        `Message: ${entry.message || "-"}`,
-        `Submitted: ${entry.createdAt}`,
-      ].join("\n"),
-    });
-  } catch (err) {
-    console.error("Email notification failed:", err.message);
-  }
-}
 
 // ---------- simple in-memory rate limiting ----------
 function makeRateLimiter(windowMs, maxPerWindow) {
@@ -128,7 +92,7 @@ app.post("/api/appointments", async (req, res) => {
     return res.status(409).json({ ok: false, error: err.message });
   }
 
-  notifyClinic(entry);
+  mailer.notifyNewAppointment(entry);
 
   res.status(201).json({ ok: true, message: `Thanks ${clean.name.split(" ")[0]}! Your request is noted — we'll call you shortly to confirm.` });
 });
@@ -184,7 +148,7 @@ app.post("/api/chat", async (req, res) => {
 
 app.listen(PORT, () => {
   console.log("BrightSmile backend running at http://localhost:" + PORT);
-  if (!transporter) console.log("Email notifications disabled (set SMTP_HOST in .env to enable).");
+  if (!mailer.isEnabled()) console.log("Email notifications disabled (set SMTP_HOST in .env to enable).");
   if (!ADMIN_KEY) console.log("WARNING: ADMIN_KEY not set — /api/appointments admin view is locked out.");
   if (!process.env.ANTHROPIC_API_KEY) console.log("WARNING: ANTHROPIC_API_KEY not set — the chat assistant is disabled.");
 });
