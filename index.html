@@ -846,17 +846,25 @@ a.topbar__item:hover { color: #fff; }
             </div>
           </div>
 
-          <div class="field">
-            <label for="service">Service needed</label>
-            <select id="service" name="service">
-              <option value="">Select a service</option>
-              <option>General check-up / cleaning</option>
-              <option>Teeth whitening</option>
-              <option>Braces or aligners</option>
-              <option>Dental implant</option>
-              <option>Root canal (RCT)</option>
-              <option>Emergency / tooth pain</option>
-            </select>
+          <div class="field-row">
+            <div class="field">
+              <label for="time">Preferred time</label>
+              <select id="time" name="time" required disabled>
+                <option value="">Select a date first</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="service">Service needed</label>
+              <select id="service" name="service">
+                <option value="">Select a service</option>
+                <option>General check-up / cleaning</option>
+                <option>Teeth whitening</option>
+                <option>Braces or aligners</option>
+                <option>Dental implant</option>
+                <option>Root canal (RCT)</option>
+                <option>Emergency / tooth pain</option>
+              </select>
+            </div>
           </div>
 
           <div class="field">
@@ -1037,6 +1045,7 @@ a.topbar__item:hover { color: #fff; }
   var form = document.getElementById("appointmentForm");
   var status = document.getElementById("formStatus");
   var dateInput = document.getElementById("date");
+  var timeInput = document.getElementById("time");
   var submitBtn = form ? form.querySelector("button[type=submit]") : null;
 
   // Don't allow past dates.
@@ -1044,10 +1053,58 @@ a.topbar__item:hover { color: #fff; }
     dateInput.min = new Date().toISOString().split("T")[0];
   }
 
+  function formatTime12(t) {
+    var parts = t.split(":");
+    var h = parseInt(parts[0], 10);
+    var period = h >= 12 ? "PM" : "AM";
+    var h12 = h % 12 || 12;
+    return h12 + ":" + parts[1] + " " + period;
+  }
+
+  function setTimeOptions(options, disabled) {
+    timeInput.innerHTML = "";
+    options.forEach(function (opt) {
+      var el = document.createElement("option");
+      el.value = opt.value;
+      el.textContent = opt.label;
+      timeInput.appendChild(el);
+    });
+    timeInput.disabled = disabled;
+  }
+
+  function resetTimeInput() {
+    setTimeOptions([{ value: "", label: "Select a date first" }], true);
+  }
+
+  function loadTimeSlots(date) {
+    if (!date) { resetTimeInput(); return; }
+    setTimeOptions([{ value: "", label: "Loading times…" }], true);
+
+    fetch("/api/availability?date=" + encodeURIComponent(date))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok || !data.slots || !data.slots.length) {
+          setTimeOptions([{ value: "", label: "No times available — try another date" }], true);
+          return;
+        }
+        var options = [{ value: "", label: "Select a time" }].concat(
+          data.slots.map(function (t) { return { value: t, label: formatTime12(t) }; })
+        );
+        setTimeOptions(options, false);
+      })
+      .catch(function () {
+        setTimeOptions([{ value: "", label: "Couldn't load times — try again" }], true);
+      });
+  }
+
+  if (dateInput && timeInput) {
+    dateInput.addEventListener("change", function () { loadTimeSlots(dateInput.value); });
+  }
+
   form.addEventListener("submit", function (e) {
     e.preventDefault();
 
-    var required = ["name", "phone", "date"];
+    var required = ["name", "phone", "date", "time"];
     var firstInvalid = null;
 
     required.forEach(function (id) {
@@ -1058,7 +1115,7 @@ a.topbar__item:hover { color: #fff; }
     });
 
     if (firstInvalid) {
-      status.textContent = "Please fill in your name, phone number and preferred date.";
+      status.textContent = "Please fill in your name, phone number, preferred date and time.";
       status.className = "form-status is-error";
       firstInvalid.focus();
       return;
@@ -1068,6 +1125,7 @@ a.topbar__item:hover { color: #fff; }
       name: document.getElementById("name").value.trim(),
       phone: document.getElementById("phone").value.trim(),
       date: document.getElementById("date").value.trim(),
+      time: document.getElementById("time").value.trim(),
       service: document.getElementById("service").value.trim(),
       message: document.getElementById("message").value.trim(),
     };
@@ -1086,12 +1144,14 @@ a.topbar__item:hover { color: #fff; }
         if (!res.ok) {
           status.textContent = res.data.error || "Something went wrong. Please call us instead.";
           status.className = "form-status is-error";
+          if (res.data && /slot|time/i.test(res.data.error || "")) loadTimeSlots(payload.date);
           return;
         }
         status.textContent = res.data.message;
         status.className = "form-status is-ok";
         form.reset();
         if (dateInput) dateInput.min = new Date().toISOString().split("T")[0];
+        resetTimeInput();
       })
       .catch(function () {
         status.textContent = "Network error — please call us instead.";

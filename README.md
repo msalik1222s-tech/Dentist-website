@@ -51,7 +51,7 @@ The site is served at `http://localhost:5500` (or whatever `PORT` you set).
 
 ### Appointment request form
 
-The form on the homepage posts to `POST /api/appointments` and saves requests to `backend/data/appointments.json`. View submissions at `/admin.html` using your `ADMIN_KEY`.
+The form on the homepage lets patients pick a date and then a real open time slot (fetched live from `GET /api/availability?date=YYYY-MM-DD`), and posts to `POST /api/appointments`. This shares the same 30-minute slot calendar as the AI assistant, so a time booked through the form is blocked from being double-booked through chat, and vice versa. Requests are saved to `backend/data/appointments.json`; view them at `/admin.html` using your `ADMIN_KEY`.
 
 ### Email notifications (optional)
 

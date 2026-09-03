@@ -2,33 +2,17 @@ const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, ".env") });
 
 const express = require("express");
-const fs = require("fs");
 const nodemailer = require("nodemailer");
 const chat = require("./chat");
 const store = require("./store");
 
 const ROOT = path.join(__dirname, "..");
-const DATA_FILE = path.join(__dirname, "data", "appointments.json");
 const PORT = process.env.PORT || 5500;
 const ADMIN_KEY = process.env.ADMIN_KEY || "";
 
 const app = express();
 app.use(express.json());
 app.use(express.static(ROOT, { extensions: ["html"] }));
-
-// ---------- storage ----------
-function loadAppointments() {
-  try {
-    return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
-  } catch {
-    return [];
-  }
-}
-
-function saveAppointments(list) {
-  fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
-  fs.writeFileSync(DATA_FILE, JSON.stringify(list, null, 2));
-}
 
 // ---------- mailer (optional) ----------
 let transporter = null;
@@ -55,6 +39,7 @@ async function notifyClinic(entry) {
         `Name: ${entry.name}`,
         `Phone: ${entry.phone}`,
         `Preferred date: ${entry.date}`,
+        `Preferred time: ${entry.time || "-"}`,
         `Service: ${entry.service || "-"}`,
         `Message: ${entry.message || "-"}`,
         `Submitted: ${entry.createdAt}`,
@@ -79,6 +64,7 @@ function makeRateLimiter(windowMs, maxPerWindow) {
 
 const isRateLimited = makeRateLimiter(10 * 60 * 1000, 5);
 const isChatRateLimited = makeRateLimiter(60 * 1000, 15);
+const isAvailabilityRateLimited = makeRateLimiter(60 * 1000, 30);
 
 function getClientIp(req) {
   return req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown";
@@ -90,6 +76,7 @@ function validate(body) {
   const name = String(body.name || "").trim();
   const phone = String(body.phone || "").trim();
   const date = String(body.date || "").trim();
+  const time = String(body.time || "").trim();
   const service = String(body.service || "").trim();
   const message = String(body.message || "").trim();
 
@@ -102,13 +89,27 @@ function validate(body) {
   } else if (date < store.getClinicNow().dateStr) {
     errors.push("Preferred date can't be in the past.");
   }
+  if (!time || !store.isValidTime(time)) {
+    errors.push("Please choose an available appointment time.");
+  }
   if (service.length > 100) errors.push("Service value is too long.");
   if (message.length > 1000) errors.push("Message is too long (max 1000 characters).");
 
-  return { errors, clean: { name, phone, date, service, message } };
+  return { errors, clean: { name, phone, date, time, service, message } };
 }
 
 // ---------- routes ----------
+app.get("/api/availability", (req, res) => {
+  if (isAvailabilityRateLimited(getClientIp(req))) {
+    return res.status(429).json({ ok: false, error: "Too many requests. Please try again shortly." });
+  }
+  const date = String(req.query.date || "").trim();
+  if (!store.isValidDate(date)) {
+    return res.status(400).json({ ok: false, error: "Please provide a valid date (YYYY-MM-DD)." });
+  }
+  res.json({ ok: true, date, slots: store.getAvailableSlots(date) });
+});
+
 app.post("/api/appointments", async (req, res) => {
   const ip = getClientIp(req);
   if (isRateLimited(ip)) {
@@ -120,15 +121,12 @@ app.post("/api/appointments", async (req, res) => {
     return res.status(400).json({ ok: false, error: errors[0] });
   }
 
-  const entry = {
-    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
-    ...clean,
-    createdAt: new Date().toISOString(),
-  };
-
-  const list = loadAppointments();
-  list.push(entry);
-  saveAppointments(list);
+  let entry;
+  try {
+    entry = store.createAppointment({ ...clean, source: "form", status: "pending" });
+  } catch (err) {
+    return res.status(409).json({ ok: false, error: err.message });
+  }
 
   notifyClinic(entry);
 
@@ -144,7 +142,7 @@ function requireAdmin(req, res, next) {
 }
 
 app.get("/api/appointments", requireAdmin, (req, res) => {
-  const list = loadAppointments().sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const list = store.loadAppointments().sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   res.json({ ok: true, appointments: list });
 });
 

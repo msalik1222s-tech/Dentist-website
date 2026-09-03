@@ -127,7 +127,7 @@ function findNextAvailable({ fromDate, time, maxDays = 30 }) {
   return null;
 }
 
-function createAppointment({ name, phone, service, date, time, message }) {
+function createAppointment({ name, phone, service, date, time, message, source, status }) {
   if (!name || !String(name).trim()) throw new Error("Patient name is required.");
   if (!phone || !String(phone).trim()) throw new Error("Phone number is required.");
   if (!isValidDate(date)) throw new Error("Invalid date format. Use YYYY-MM-DD.");
@@ -143,8 +143,8 @@ function createAppointment({ name, phone, service, date, time, message }) {
     date,
     time,
     message: String(message || "").trim(),
-    status: "confirmed",
-    source: "chat",
+    status: status || "confirmed",
+    source: source || "chat",
     createdAt: new Date().toISOString(),
   };
 
