@@ -5,6 +5,7 @@
   "openHour": 9,
   "closeHour": 21,
   "slotMinutes": 30,
+  "timezoneOffsetMinutes": 180,
   "phone": "+966 50 000 0000",
   "email": "hello@brightsmile.com",
   "address": "Al Rawdah District, Jeddah 23434",

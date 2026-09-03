@@ -1,10 +1,11 @@
-require("dotenv").config();
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, ".env") });
 
 const express = require("express");
 const fs = require("fs");
-const path = require("path");
 const nodemailer = require("nodemailer");
 const chat = require("./chat");
+const store = require("./store");
 
 const ROOT = path.join(__dirname, "..");
 const DATA_FILE = path.join(__dirname, "data", "appointments.json");
@@ -96,8 +97,10 @@ function validate(body) {
   if (!phone || phone.replace(/[^0-9+]/g, "").length < 7 || phone.length > 30) {
     errors.push("Please provide a valid phone number.");
   }
-  if (!date || Number.isNaN(Date.parse(date))) {
+  if (!date || !store.isValidDate(date)) {
     errors.push("Please provide a valid preferred date.");
+  } else if (date < store.getClinicNow().dateStr) {
+    errors.push("Preferred date can't be in the past.");
   }
   if (service.length > 100) errors.push("Service value is too long.");
   if (message.length > 1000) errors.push("Message is too long (max 1000 characters).");

@@ -36,8 +36,23 @@ function getServiceByName(name) {
   );
 }
 
+// Parses a strict YYYY-MM-DD string as a real calendar date (rejects
+// overflow like 2026-02-30, which `Date.parse` silently rolls into March).
+// Uses UTC throughout so results don't depend on the host machine's
+// timezone — important once this runs on a server that isn't in Jeddah.
+function parseDateStrict(date) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(date || ""));
+  if (!m) return null;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return null;
+  return dt;
+}
+
 function isValidDate(date) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(String(date || "")) && !Number.isNaN(Date.parse(date));
+  return parseDateStrict(date) !== null;
 }
 
 function isValidTime(time) {
@@ -54,15 +69,38 @@ function generateDaySlots() {
   return slots;
 }
 
+// Current date/time in the clinic's fixed timezone (Asia/Riyadh, UTC+3,
+// no DST), independent of the host server's own timezone.
+function getClinicNow() {
+  const offsetMs = (CLINIC.timezoneOffsetMinutes || 0) * 60000;
+  const clinicMoment = new Date(Date.now() + offsetMs);
+  return {
+    dateStr: clinicMoment.toISOString().slice(0, 10),
+    minutesSinceMidnight: clinicMoment.getUTCHours() * 60 + clinicMoment.getUTCMinutes(),
+  };
+}
+
 function getAvailableSlots(date) {
   if (!isValidDate(date)) return [];
+  const { dateStr: todayStr, minutesSinceMidnight: nowMinutes } = getClinicNow();
+  if (date < todayStr) return [];
+
   const all = loadAppointments();
   const booked = new Set(
     all
       .filter((a) => a.date === date && a.status !== "cancelled" && a.time)
       .map((a) => a.time)
   );
-  return generateDaySlots().filter((t) => !booked.has(t));
+  let slots = generateDaySlots().filter((t) => !booked.has(t));
+
+  if (date === todayStr) {
+    slots = slots.filter((t) => {
+      const [h, m] = t.split(":").map(Number);
+      return h * 60 + m > nowMinutes;
+    });
+  }
+
+  return slots;
 }
 
 function isSlotAvailable(date, time) {
@@ -70,13 +108,13 @@ function isSlotAvailable(date, time) {
 }
 
 function addDays(dateStr, days) {
-  const d = new Date(dateStr + "T00:00:00");
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+  const dt = parseDateStrict(dateStr);
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return dt.toISOString().slice(0, 10);
 }
 
 function findNextAvailable({ fromDate, time, maxDays = 30 }) {
-  let date = isValidDate(fromDate) ? fromDate : new Date().toISOString().slice(0, 10);
+  let date = isValidDate(fromDate) ? fromDate : getClinicNow().dateStr;
   for (let i = 0; i < maxDays; i++) {
     const slots = getAvailableSlots(date);
     if (time) {
@@ -94,6 +132,7 @@ function createAppointment({ name, phone, service, date, time, message }) {
   if (!phone || !String(phone).trim()) throw new Error("Phone number is required.");
   if (!isValidDate(date)) throw new Error("Invalid date format. Use YYYY-MM-DD.");
   if (!isValidTime(time)) throw new Error("Invalid or out-of-hours time slot.");
+  if (date < getClinicNow().dateStr) throw new Error("Cannot book an appointment in the past.");
   if (!isSlotAvailable(date, time)) throw new Error("That slot is already booked.");
 
   const entry = {
@@ -130,6 +169,7 @@ function rescheduleAppointment({ id, newDate, newTime }) {
   if (appt.status === "cancelled") throw new Error("This appointment was already cancelled.");
   if (!isValidDate(newDate)) throw new Error("Invalid date format. Use YYYY-MM-DD.");
   if (!isValidTime(newTime)) throw new Error("Invalid or out-of-hours time slot.");
+  if (newDate < getClinicNow().dateStr) throw new Error("Cannot reschedule to a date in the past.");
   const sameSlot = appt.date === newDate && appt.time === newTime;
   if (!sameSlot && !isSlotAvailable(newDate, newTime)) {
     throw new Error("That slot is already booked.");
@@ -156,6 +196,7 @@ module.exports = {
   getClinicInfo,
   getServices,
   getServiceByName,
+  getClinicNow,
   generateDaySlots,
   getAvailableSlots,
   isSlotAvailable,

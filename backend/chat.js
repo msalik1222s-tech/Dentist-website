@@ -16,14 +16,16 @@ function getClient() {
 function buildSystemPrompt() {
   const clinic = store.getClinicInfo();
   const services = store.getServices();
-  const today = new Date().toISOString().slice(0, 10);
+  const now = store.getClinicNow();
+  const currentTime = `${String(Math.floor(now.minutesSinceMidnight / 60)).padStart(2, "0")}:${String(now.minutesSinceMidnight % 60).padStart(2, "0")}`;
 
   const dataBlock = [
     "",
     "============================================================",
     "LIVE AUTHORIZED CLINIC DATABASE (this overrides anything above it says by default — use it as the single source of truth)",
     "============================================================",
-    `Today's date: ${today}`,
+    `Today's date (clinic-local, Asia/Riyadh): ${now.dateStr}`,
+    `Current clinic-local time: ${currentTime}`,
     `Clinic name: ${clinic.name}`,
     `Dentist: ${clinic.dentist}`,
     `Opening hours: ${clinic.hoursLabel}`,
