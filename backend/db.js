@@ -12,6 +12,9 @@ const path = require("path");
 
 const DATABASE_URL = process.env.DATABASE_URL || process.env.POSTGRES_URL || "";
 
+// Vercel sets VERCEL=1 in every deployment, preview builds included.
+const ON_VERCEL = !!process.env.VERCEL;
+
 // ---------------------------------------------------------------------------
 // Postgres driver
 // ---------------------------------------------------------------------------
@@ -238,6 +241,22 @@ function createPostgresDriver(connectionString) {
 function createFileDriver() {
   const DATA_FILE = path.join(__dirname, "data", "appointments.json");
 
+  // Vercel’s filesystem is read-only, so this driver cannot store anything there.
+  // Without this guard the first booking dies inside writeFileSync with an EROFS
+  // that the patient only ever sees as "Something went wrong", and the request is
+  // lost. Fail with the actual cause instead.
+  function assertWritableHost() {
+    if (!ON_VERCEL) return;
+    throw Object.assign(
+      new Error(
+        "DATABASE_URL is not set. Vercel’s filesystem is read-only, so appointments " +
+          "cannot be saved to backend/data/appointments.json. Add a Postgres connection " +
+          "string as DATABASE_URL in Project Settings -> Environment Variables and redeploy."
+      ),
+      { code: "NO_DATABASE_URL" }
+    );
+  }
+
   function load() {
     try {
       const list = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
@@ -248,6 +267,7 @@ function createFileDriver() {
   }
 
   function save(list) {
+    assertWritableHost();
     fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
     fs.writeFileSync(DATA_FILE, JSON.stringify(list, null, 2));
   }
@@ -338,5 +358,12 @@ function createFileDriver() {
 }
 
 const driver = DATABASE_URL ? createPostgresDriver(DATABASE_URL) : createFileDriver();
+
+if (!DATABASE_URL && ON_VERCEL) {
+  console.error(
+    "FATAL CONFIG: running on Vercel without DATABASE_URL. Appointments cannot be " +
+      "saved — set DATABASE_URL in Project Settings -> Environment Variables."
+  );
+}
 
 module.exports = Object.assign({ isPostgres: !!DATABASE_URL }, driver);
