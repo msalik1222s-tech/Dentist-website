@@ -1,0 +1,72 @@
+[
+  {
+    "id": "walk-in",
+    "question": "Do I need an appointment, or can I walk in?",
+    "answer": "Booking ahead is best so we can keep your slot free, but walk-ins are welcome for emergency care — severe pain, swelling or a broken tooth.",
+    "tags": ["appointment", "walk-in", "emergency", "booking"],
+    "sortOrder": 1
+  },
+  {
+    "id": "first-visit",
+    "question": "What happens at a first visit?",
+    "answer": "A first visit is normally an examination and a talk through your options: the dentist checks your teeth and gums, takes an X-ray if it's needed, and explains what treatment (if any) they'd recommend and what it would cost before anything is started.",
+    "tags": ["first visit", "consultation", "examination", "new patient"],
+    "sortOrder": 2
+  },
+  {
+    "id": "how-long-cleaning",
+    "question": "How long does a cleaning appointment take?",
+    "answer": "A scale and polish usually takes one 30-minute slot. If there's a lot of build-up the dentist may suggest a second visit.",
+    "tags": ["cleaning", "scaling", "duration", "how long"],
+    "sortOrder": 3
+  },
+  {
+    "id": "children",
+    "question": "Do you treat children?",
+    "answer": "Yes. We see children for check-ups, cleaning, fluoride and fillings. A parent or guardian needs to come along and stay for the appointment.",
+    "tags": ["children", "kids", "paediatric", "family"],
+    "sortOrder": 4
+  },
+  {
+    "id": "payment",
+    "question": "How can I pay?",
+    "answer": "You can pay at the clinic by card or cash. Payment is taken after the appointment, and the price is confirmed with you before treatment starts.",
+    "tags": ["payment", "pay", "card", "cash", "cost"],
+    "sortOrder": 5
+  },
+  {
+    "id": "insurance",
+    "question": "Do you accept insurance?",
+    "answer": "Insurance cover varies by provider and policy, and that isn't something I can check from here. Please call the clinic and the team will confirm whether your plan is accepted.",
+    "tags": ["insurance", "cover", "policy", "claim"],
+    "sortOrder": 6
+  },
+  {
+    "id": "cancellation",
+    "question": "What if I need to cancel or move my appointment?",
+    "answer": "Just tell me the phone number you booked with and I can move or cancel it for you. We ask for as much notice as you can give so the slot can go to someone else.",
+    "tags": ["cancel", "cancellation", "reschedule", "change", "move"],
+    "sortOrder": 7
+  },
+  {
+    "id": "nervous",
+    "question": "I'm nervous about the dentist. Can you help?",
+    "answer": "That's very common and nothing to be embarrassed about. Tell the team when you arrive — they'll take things slowly, explain each step first, and stop whenever you ask. Longer, quieter slots can usually be arranged.",
+    "tags": ["nervous", "anxiety", "scared", "afraid", "phobia"],
+    "sortOrder": 8
+  },
+  {
+    "id": "whitening-safe",
+    "question": "Is teeth whitening safe?",
+    "answer": "In-clinic whitening is a well-established treatment when it's done by a dentist after a check-up. Some people get temporary sensitivity for a day or two. The dentist will check first whether it's suitable for you.",
+    "tags": ["whitening", "safe", "bleaching", "sensitivity"],
+    "sortOrder": 9
+  },
+  {
+    "id": "emergency-hours",
+    "question": "What do I do if I have a dental emergency?",
+    "answer": "Come straight in during opening hours and ask for emergency care — no appointment needed. If there's heavy bleeding that won't stop, difficulty breathing or swallowing, or major facial swelling, treat it as a medical emergency and go to the nearest emergency department right away.",
+    "tags": ["emergency", "urgent", "pain", "swelling", "bleeding", "accident"],
+    "sortOrder": 10
+  }
+]

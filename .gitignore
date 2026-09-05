@@ -4,3 +4,4 @@ backend/.env
 .env
 .env.local
 backend/data/appointments.json
+backend/data/chat-history.json

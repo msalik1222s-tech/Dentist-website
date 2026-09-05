@@ -58,4 +58,20 @@ function notifyAppointmentChange(action, entry) {
   ]);
 }
 
-module.exports = { isEnabled, notifyNewAppointment, notifyAppointmentChange };
+// Sent when the AI assistant escalates a conversation. The subject leads with
+// the reason so the team can triage a complaint ahead of a general question.
+function notifyHandoff(handoff) {
+  return send(`Chat handoff (${handoff.reason}) — ${handoff.patientName || "unnamed patient"}`, [
+    `Reason: ${handoff.reason}`,
+    `Patient: ${handoff.patientName || "-"}`,
+    `Phone: ${handoff.patientPhone || "-"}`,
+    `Channel: ${handoff.channel}`,
+    `Reference: ${handoff.id}`,
+    `Session: ${handoff.sessionId || "-"}`,
+    "",
+    "Summary:",
+    handoff.summary || "-",
+  ]);
+}
+
+module.exports = { isEnabled, notifyNewAppointment, notifyAppointmentChange, notifyHandoff };

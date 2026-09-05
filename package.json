@@ -2,10 +2,11 @@
   "name": "brightsmile-dental",
   "version": "1.0.0",
   "private": true,
-  "description": "Bright Smile Dental Clinic — static site plus an Express API for appointments and the AI chat assistant. Deploys to Vercel as static files + one serverless function.",
+  "description": "Bright Smile Dental Clinic — static site, an Express API for appointments, and the Dental Care Assistant AI agent (provider-agnostic, web + WhatsApp). Deploys to Vercel as static files plus one serverless function.",
   "scripts": {
     "start": "node backend/server.js",
     "dev": "node backend/server.js",
+    "test": "node --test \"tests/*.test.js\"",
     "db:check": "node scripts/db-check.js"
   },
   "dependencies": {

@@ -2,7 +2,7 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "dentist-site",
+      "name": "brightsmile",
       "runtimeExecutable": "node",
       "runtimeArgs": ["backend/server.js"],
       "port": 5500

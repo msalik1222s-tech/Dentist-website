@@ -8,6 +8,9 @@
 <style>
   body { font-family: system-ui, sans-serif; max-width: 960px; margin: 2rem auto; padding: 0 1rem; color: #1c2b2a; }
   h1 { font-size: 1.4rem; }
+  h2 { font-size: 1.15rem; margin-top: 2.5rem; }
+  #handoffStatus { color: #4a5a58; margin-bottom: .5rem; }
+  #handoffRows button { padding: .3rem .7rem; border: none; border-radius: 5px; background: #0f7a6e; color: #fff; cursor: pointer; }
   #keyBar { display: flex; gap: .5rem; margin-bottom: 1.5rem; }
   #keyBar input { flex: 1; padding: .5rem .7rem; border: 1px solid #ccc; border-radius: 6px; }
   #keyBar button { padding: .5rem 1rem; border: none; border-radius: 6px; background: #0f7a6e; color: #fff; cursor: pointer; }
@@ -29,6 +32,15 @@
       <tr><th>Submitted</th><th>Name</th><th>Phone</th><th>Date</th><th>Time</th><th>Service</th><th>Status</th><th>Message</th></tr>
     </thead>
     <tbody id="rows"></tbody>
+  </table>
+
+  <h2 id="handoffHeading" hidden>Chat handoffs</h2>
+  <p id="handoffStatus"></p>
+  <table id="handoffs" hidden>
+    <thead>
+      <tr><th>Requested</th><th>Reason</th><th>Patient</th><th>Phone</th><th>Channel</th><th>What they need</th><th></th></tr>
+    </thead>
+    <tbody id="handoffRows"></tbody>
   </table>
 
 <script>
@@ -78,8 +90,67 @@
       .catch(function () { status.textContent = "Network error."; });
   }
 
-  document.getElementById("load").addEventListener("click", load);
-  if (savedKey) load();
+  /* Conversations the AI assistant escalated. These are the ones a person has
+     to pick up, so they sit alongside the appointment requests rather than
+     behind another login. */
+  var handoffHeading = document.getElementById("handoffHeading");
+  var handoffStatus = document.getElementById("handoffStatus");
+  var handoffTable = document.getElementById("handoffs");
+  var handoffRows = document.getElementById("handoffRows");
+
+  function resolveHandoff(id) {
+    var key = keyInput.value.trim();
+    fetch("/api/admin/handoffs/" + encodeURIComponent(id) + "/resolve", {
+      method: "POST",
+      headers: { "x-admin-key": key }
+    })
+      .then(function () { loadHandoffs(); })
+      .catch(function () { handoffStatus.textContent = "Network error."; });
+  }
+
+  function loadHandoffs() {
+    var key = keyInput.value.trim();
+    if (!key) return;
+
+    fetch("/api/admin/handoffs?status=open", { headers: { "x-admin-key": key } })
+      .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+      .then(function (res) {
+        handoffHeading.hidden = false;
+        if (!res.ok) { handoffStatus.textContent = res.data.error || "Failed to load handoffs."; return; }
+
+        var list = res.data.handoffs || [];
+        handoffStatus.textContent = list.length
+          ? list.length + " conversation(s) waiting for someone."
+          : "Nothing waiting.";
+        handoffTable.hidden = list.length === 0;
+
+        handoffRows.innerHTML = list.map(function (h) {
+          return "<tr>" +
+            "<td>" + escapeHtml(new Date(h.createdAt).toLocaleString()) + "</td>" +
+            "<td>" + escapeHtml(h.reason) + "</td>" +
+            "<td>" + escapeHtml(h.patientName || "-") + "</td>" +
+            "<td>" + escapeHtml(h.patientPhone || "-") + "</td>" +
+            "<td>" + escapeHtml(h.channel) + "</td>" +
+            "<td>" + escapeHtml(h.summary) + "</td>" +
+            '<td><button type="button" data-resolve="' + escapeHtml(h.id) + '">Done</button></td>' +
+            "</tr>";
+        }).join("");
+      })
+      .catch(function () { handoffStatus.textContent = "Network error."; });
+  }
+
+  handoffRows.addEventListener("click", function (e) {
+    var id = e.target && e.target.getAttribute("data-resolve");
+    if (id) resolveHandoff(id);
+  });
+
+  function loadAll() {
+    load();
+    loadHandoffs();
+  }
+
+  document.getElementById("load").addEventListener("click", loadAll);
+  if (savedKey) loadAll();
 </script>
 </body>
 </html>

@@ -10,7 +10,9 @@
 const fs = require("fs");
 const path = require("path");
 
-const DATABASE_URL = process.env.DATABASE_URL || process.env.POSTGRES_URL || "";
+const pg = require("./pg");
+
+const DATABASE_URL = pg.DATABASE_URL;
 
 // Vercel sets VERCEL=1 in every deployment, preview builds included.
 const ON_VERCEL = !!process.env.VERCEL;
@@ -19,21 +21,10 @@ const ON_VERCEL = !!process.env.VERCEL;
 // Postgres driver
 // ---------------------------------------------------------------------------
 
-function createPostgresDriver(connectionString) {
-  const { Pool } = require("pg");
-
-  const isLocal = /@(localhost|127\.0\.0\.1)[:/]/.test(connectionString);
-  const pool = new Pool({
-    connectionString,
-    // Managed providers (Neon, Supabase, Railway) terminate TLS with chains
-    // Node doesn't always trust, so only verify when the URL asks us to.
-    ssl: isLocal || /sslmode=/.test(connectionString) ? undefined : { rejectUnauthorized: false },
-    // One connection per serverless instance: many instances times a big pool
-    // exhausts the database's connection limit fast.
-    max: 1,
-    idleTimeoutMillis: 10000,
-    connectionTimeoutMillis: 10000,
-  });
+function createPostgresDriver() {
+  // The pool is shared with the chat and catalog stores (see backend/pg.js)
+  // so one serverless instance holds a single connection, not one per module.
+  const pool = pg.getPool();
 
   const SCHEMA = `
     CREATE TABLE IF NOT EXISTS appointments (
@@ -71,17 +62,9 @@ function createPostgresDriver(connectionString) {
   // A check-then-insert in app code races when two visitors book the same slot
   // on two instances at once; the index makes the database reject the loser.
 
-  // Run the schema once per cold start, not once per request.
-  let ready = null;
-  function init() {
-    if (!ready) {
-      ready = pool.query(SCHEMA).catch((err) => {
-        ready = null; // let the next request retry instead of failing forever
-        throw err;
-      });
-    }
-    return ready;
-  }
+  // Run the schema once per cold start, not once per request. pg.once drops
+  // its memo if the schema call fails, so the next request retries.
+  const init = pg.once(() => pool.query(SCHEMA));
 
   async function query(text, params) {
     await init();
@@ -239,7 +222,9 @@ function createPostgresDriver(connectionString) {
 // ---------------------------------------------------------------------------
 
 function createFileDriver() {
-  const DATA_FILE = path.join(__dirname, "data", "appointments.json");
+  // DATA_DIR lets the test suite point the file store at a temporary directory
+  // instead of writing over a developer's own data.
+  const DATA_FILE = path.join(process.env.DATA_DIR || path.join(__dirname, "data"), "appointments.json");
 
   // Vercel’s filesystem is read-only, so this driver cannot store anything there.
   // Without this guard the first booking dies inside writeFileSync with an EROFS
@@ -357,7 +342,7 @@ function createFileDriver() {
   };
 }
 
-const driver = DATABASE_URL ? createPostgresDriver(DATABASE_URL) : createFileDriver();
+const driver = DATABASE_URL ? createPostgresDriver() : createFileDriver();
 
 if (!DATABASE_URL && ON_VERCEL) {
   console.error(

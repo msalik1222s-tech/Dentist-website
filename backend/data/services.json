@@ -4,41 +4,141 @@
     "name": "General Dentistry",
     "description": "Check-ups, scaling, fillings and fluoride treatment to keep problems small.",
     "startingPrice": 150,
-    "priceLabel": "From SAR 150"
+    "priceLabel": "From SAR 150",
+    "durationMinutes": 30,
+    "keywords": [
+      "check-up",
+      "checkup",
+      "check up",
+      "cleaning",
+      "scaling",
+      "polish",
+      "filling",
+      "cavity",
+      "hole in tooth",
+      "plaque",
+      "tartar",
+      "fluoride",
+      "decay",
+      "toothache",
+      "sensitive",
+      "sensitivity",
+      "bad breath",
+      "routine",
+      "examination"
+    ]
   },
   {
     "id": "whitening",
     "name": "Teeth Whitening",
     "description": "Safe in-clinic whitening that brightens several shades in one sitting.",
     "startingPrice": 800,
-    "priceLabel": "From SAR 800"
+    "priceLabel": "From SAR 800",
+    "durationMinutes": 60,
+    "keywords": [
+      "whitening",
+      "white",
+      "bleaching",
+      "stain",
+      "stains",
+      "yellow",
+      "discoloured",
+      "discolored",
+      "brighter",
+      "cosmetic",
+      "wedding",
+      "smile makeover"
+    ]
   },
   {
     "id": "braces",
     "name": "Braces & Aligners",
     "description": "Metal, ceramic or clear aligners — straightening plans for teens and adults.",
     "startingPrice": 4500,
-    "priceLabel": "From SAR 4,500"
+    "priceLabel": "From SAR 4,500",
+    "durationMinutes": 45,
+    "keywords": [
+      "braces",
+      "aligner",
+      "aligners",
+      "invisalign",
+      "crooked",
+      "gap",
+      "gaps",
+      "overbite",
+      "underbite",
+      "crowded",
+      "straighten",
+      "straightening",
+      "orthodontic",
+      "retainer",
+      "teeth not straight"
+    ]
   },
   {
     "id": "implants",
     "name": "Dental Implants",
     "description": "Permanent titanium implants that look, feel and chew like natural teeth.",
     "startingPrice": 3500,
-    "priceLabel": "From SAR 3,500"
+    "priceLabel": "From SAR 3,500",
+    "durationMinutes": 60,
+    "keywords": [
+      "implant",
+      "implants",
+      "missing tooth",
+      "missing teeth",
+      "lost a tooth",
+      "knocked out",
+      "replace tooth",
+      "denture",
+      "dentures",
+      "bridge",
+      "gap from extraction"
+    ]
   },
   {
     "id": "rct",
     "name": "Root Canal (RCT)",
     "description": "Single-visit root canals with modern rotary tools — comfortable and quick.",
     "startingPrice": 750,
-    "priceLabel": "From SAR 750"
+    "priceLabel": "From SAR 750",
+    "durationMinutes": 60,
+    "keywords": [
+      "root canal",
+      "rct",
+      "nerve",
+      "abscess",
+      "severe pain",
+      "throbbing",
+      "infected tooth",
+      "infection",
+      "dead tooth",
+      "pain at night",
+      "swelling around tooth"
+    ]
   },
   {
     "id": "emergency",
     "name": "Emergency Care",
     "description": "Severe pain, swelling or a broken tooth? Same-day relief, no appointment needed.",
     "startingPrice": null,
-    "priceLabel": "Walk-in welcome"
+    "priceLabel": "Walk-in welcome",
+    "durationMinutes": 30,
+    "keywords": [
+      "emergency",
+      "urgent",
+      "broken tooth",
+      "chipped",
+      "cracked",
+      "trauma",
+      "accident",
+      "bleeding",
+      "swollen face",
+      "can't sleep",
+      "unbearable pain",
+      "same day",
+      "right now",
+      "asap"
+    ]
   }
 ]

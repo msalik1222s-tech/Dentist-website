@@ -1,31 +1,52 @@
 # Bright Smile Dental Clinic — Website
 
-A static marketing site for Bright Smile Dental Clinic with a small Express API for appointment requests and an AI chat assistant. It runs as one Node process locally and deploys to Vercel as static files plus a single serverless function.
+A static marketing site for Bright Smile Dental Clinic, an Express API for appointment requests, and the **Dental Care Assistant** — an AI receptionist that answers from the clinic's live data and books real appointments, on the website and on WhatsApp. It runs as one Node process locally and deploys to Vercel as static files plus a single serverless function.
+
+The AI agent has its own guide: **[docs/ai-agent.md](docs/ai-agent.md)** — architecture, guardrails, memory, swapping the LLM, and WhatsApp setup.
 
 ## Project structure
 
 ```
 public/                 Everything served publicly — nothing else is web-reachable
   index.html            Main site (all HTML/CSS/JS in one file)
-  admin.html            Key-protected view of submitted appointment requests
+  admin.html            Key-protected view of appointment requests and chat handoffs
   img/                  Site images (Pexels, free-license)
 
 api/
   index.js              Vercel serverless entry point (wraps the Express app)
 
 backend/
-  app.js                Express app factory — API routes, validation, rate limiting
+  app.js                Composition root — wires the routers together
   server.js             Local dev entry point (serves public/ + the API on one port)
-  chat.js               Claude tool-use loop for the AI chat assistant
+  pg.js                 One shared Postgres pool for every module
+  db.js                 Appointments + rate limiting (Postgres, or a JSON file locally)
   store.js              Appointment/slot/service logic
-  db.js                 Storage driver — Postgres, or a JSON file for local dev
   mailer.js             Email notifications to the clinic
   .env.example          Copy to .env and fill in your own values
+
+  persistence/          Catalogue and conversation storage
+  routes/               One router per area (appointments, chat, catalogue, admin, WhatsApp)
+  ai/                   The Dental Care Assistant — see docs/ai-agent.md
+    agent.js              Orchestration loop
+    providers/            Swappable LLM adapters (Anthropic, OpenAI, Google, mock)
+    prompt/               System prompt assembly + live clinic context
+    tools/                What the agent can actually do
+    memory/               Session memory, replay window, rolling summary
+    guardrails/           Input screening and output safety checks
+    channels/whatsapp/    Webhook verification, parsing, sending
+
   data/
-    clinic.json         Clinic profile (name, dentist, hours, contact)
-    services.json       Services + official prices
+    clinic.json         Clinic profile (name, hours, contact, slot length)
+    services.json       Services, prices and recommendation keywords (seed)
+    doctors.json        Dentists and their specialties (seed)
+    faqs.json           Frequently asked questions (seed)
     system-prompt.txt   Master system prompt for the AI assistant
     appointments.json   Local-only appointment records (gitignored)
+    chat-history.json   Local-only conversation records (gitignored)
+
+tests/                  node --test — no API key or database needed
+docs/
+  ai-agent.md           AI agent architecture, guardrails and operations
 
 scripts/
   db-check.js           One-command health check for DATABASE_URL
@@ -84,8 +105,14 @@ In **Project Settings → Environment Variables**, for Production *and* Preview:
 | `ADMIN_KEY` | yes | Long random string; without it `/admin.html` stays locked out |
 | `ANTHROPIC_API_KEY` | for chat | From [console.anthropic.com](https://console.anthropic.com/) |
 | `ANTHROPIC_MODEL` | no | Defaults to `claude-sonnet-5` |
+| `AI_PROVIDER` | no | `anthropic` (default), `openai` or `google`. Leave empty to use whichever key is set |
+| `OPENAI_API_KEY` / `GOOGLE_API_KEY` | for those providers | Alternatives to Anthropic |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | for email | Leave `SMTP_HOST` empty to disable email |
 | `CLINIC_EMAIL`, `FROM_EMAIL` | for email | Where notifications go, and who they come from |
+| `WHATSAPP_*` | for WhatsApp | See [docs/ai-agent.md](docs/ai-agent.md#8-whatsapp-setup) |
+
+`backend/.env.example` lists every variable, including the optional tuning for
+generation, memory and guardrails.
 
 Redeploy after adding variables — they are baked in at deploy time.
 
@@ -111,19 +138,31 @@ Double-booking is prevented by a partial unique index on `(date, time)` in the d
 
 Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `CLINIC_EMAIL` and `FROM_EMAIL` to email the clinic whenever a new request comes in. Leave `SMTP_HOST` empty to skip this — requests are still saved either way.
 
-### AI chat assistant (optional)
+### Dental Care Assistant (optional)
 
-A floating chat widget lets patients ask about services, prices, hours, and book/reschedule/cancel appointments in English, Arabic or Urdu. It's powered by the Claude API and only ever answers from `backend/data/clinic.json` and `backend/data/services.json`, and checks/updates real slots in the database — it never invents prices or availability.
+A floating chat widget lets patients ask about the clinic's dentists, services, prices and opening hours, get a service suggested for what they describe, and book, reschedule or cancel appointments — in English, Arabic or Urdu. The same assistant answers on WhatsApp when that channel is configured.
+
+Everything it says about the clinic comes back from a tool call against the live database first: it never invents a price, a dentist, a policy or a free slot. It cannot diagnose, prescribe or discount, and it hands the conversation to the clinic team when it should not be answering. Full detail — architecture, guardrails, memory, and how to swap the LLM — is in **[docs/ai-agent.md](docs/ai-agent.md)**.
 
 To enable it:
 
-1. Get an API key from [console.anthropic.com](https://console.anthropic.com/)
+1. Get an API key from [console.anthropic.com](https://console.anthropic.com/) (or use OpenAI/Google — see `AI_PROVIDER`)
 2. Set `ANTHROPIC_API_KEY` (in `backend/.env` locally, or Vercel's environment variables)
 3. Restart / redeploy
 
 Without a key, the widget shows a friendly "not set up yet" message instead of failing silently.
 
-To change the clinic's dentist, hours, contact info, services or prices, edit `backend/data/clinic.json` and `backend/data/services.json` — the chat assistant and the website should be kept in sync manually.
+**Changing what it knows.** Clinic name, hours and contact live in `backend/data/clinic.json`. Services, dentists and FAQs are database tables, seeded once from `backend/data/services.json`, `doctors.json` and `faqs.json` — so in production you change a price with an `UPDATE` and it is live within a minute, with no redeploy and nothing to keep in sync by hand. The persona and rules live in `backend/data/system-prompt.txt`.
+
+**Handoffs.** When the assistant escalates — a complaint, a request for a person, anything clinical — the clinic gets an email and the conversation appears on `/admin.html` with a **Done** button.
+
+### Tests
+
+```bash
+npm test
+```
+
+Covers the agent loop, tools, memory, both guardrails and the WhatsApp webhook, against a scripted provider and a temporary data directory — no API key, no database, no network.
 
 ### Rate limiting
 
@@ -131,7 +170,8 @@ To change the clinic's dentist, hours, contact info, services or prices, edit `b
 
 ## Notes
 
-- `backend/.env` and `backend/data/appointments.json` are gitignored — they hold secrets and live patient data and should never be committed.
+- `backend/.env`, `backend/data/appointments.json` and `backend/data/chat-history.json` are gitignored — they hold secrets and live patient data and should never be committed.
 - Only `public/` is web-reachable. Backend source and `backend/data/*` are bundled into the function but are not downloadable.
 - The JSON file store is for local development only. It will silently lose data on Vercel, which is why `DATABASE_URL` is required there.
-- The data model suits a single-location clinic. It isn't meant to scale to a multi-location system with per-dentist calendars.
+- A chat session id is a bearer credential: whoever holds one can read that conversation back. It is 24 random bytes and is never logged in full. See [docs/ai-agent.md](docs/ai-agent.md#5-memory) if you need something stronger.
+- The data model suits a single-location clinic. Appointments are booked against one shared 30-minute calendar, not per dentist, so the assistant offers a slot at the clinic rather than with a named dentist. Adding per-dentist calendars means a `doctor_id` on `appointments` and on the slot query — the agent's tools would follow, but nothing else here assumes it.

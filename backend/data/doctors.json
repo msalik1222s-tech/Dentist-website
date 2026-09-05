@@ -1,0 +1,35 @@
+[
+  {
+    "id": "dr-asad",
+    "name": "Dr. Asad",
+    "title": "General & Cosmetic Dentist",
+    "specialties": ["General Dentistry", "Teeth Whitening", "Root Canal (RCT)", "Dental Crown"],
+    "qualifications": "BDS, MSc Restorative Dentistry",
+    "experienceYears": 12,
+    "languages": ["English", "Arabic", "Urdu"],
+    "bio": "Leads the clinic and handles check-ups, fillings, root canals and cosmetic work.",
+    "sortOrder": 1
+  },
+  {
+    "id": "dr-noura",
+    "name": "Dr. Noura",
+    "title": "Orthodontist",
+    "specialties": ["Braces & Aligners"],
+    "qualifications": "BDS, MSc Orthodontics",
+    "experienceYears": 9,
+    "languages": ["English", "Arabic"],
+    "bio": "Plans and reviews braces and clear-aligner treatment for teens and adults.",
+    "sortOrder": 2
+  },
+  {
+    "id": "dr-hamza",
+    "name": "Dr. Hamza",
+    "title": "Oral Surgeon & Implantologist",
+    "specialties": ["Dental Implants", "Emergency Care"],
+    "qualifications": "BDS, MSc Oral Surgery",
+    "experienceYears": 14,
+    "languages": ["English", "Arabic", "Urdu"],
+    "bio": "Handles implants, extractions and same-day emergency treatment.",
+    "sortOrder": 3
+  }
+]

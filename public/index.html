@@ -1171,7 +1171,11 @@ a.topbar__item:hover { color: #fff; }
 
 <script>
 /* =========================================================
-   AI chat assistant widget
+   Dental Care Assistant — chat widget
+
+   The conversation lives on the server: this only holds a session id, so a
+   reload restores the chat instead of losing it, and the transcript is never
+   round-tripped through the browser on every message.
    ========================================================= */
 (function () {
   "use strict";
@@ -1182,13 +1186,39 @@ a.topbar__item:hover { color: #fff; }
   var form = document.getElementById("chatForm");
   var input = document.getElementById("chatInput");
   var sendBtn = document.getElementById("chatSend");
+  var head = panel ? panel.querySelector(".chat-panel__head") : null;
 
   if (!toggle || !panel || !form) return;
 
-  var history = [];
+  var STORAGE_KEY = "brightsmile.chat.session";
+  var sessionId = null;
   var sending = false;
   var opened = false;
+  var started = false;
+  var config = null;
 
+  /* Storage is unavailable in some privacy modes; the widget still works,
+     it just cannot restore the conversation after a reload. */
+  function readStoredSession() {
+    try {
+      return window.localStorage.getItem(STORAGE_KEY);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function storeSession(id) {
+    sessionId = id;
+    try {
+      if (id) window.localStorage.setItem(STORAGE_KEY, id);
+      else window.localStorage.removeItem(STORAGE_KEY);
+    } catch (e) {
+      /* ignore */
+    }
+  }
+
+  /* textContent, never innerHTML: replies are model output and must never be
+     able to inject markup into the page. */
   function addMessage(role, text) {
     var el = document.createElement("div");
     el.className = "chat-msg chat-msg--" + (role === "user" ? "user" : "bot");
@@ -1207,15 +1237,68 @@ a.topbar__item:hover { color: #fff; }
     return el;
   }
 
+  function setSubtitle(text) {
+    if (!head) return;
+    var span = head.querySelector("span");
+    if (span) span.textContent = text;
+  }
+
+  function loadConfig() {
+    if (config) return Promise.resolve(config);
+    return fetch("/api/chat/config")
+      .then(function (r) { return r.json(); })
+      .then(function (data) { config = data; return data; })
+      .catch(function () { return null; });
+  }
+
+  function restore(id) {
+    return fetch("/api/chat/" + encodeURIComponent(id))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data || !data.ok || !data.messages || !data.messages.length) return false;
+        data.messages.forEach(function (m) { addMessage(m.role, m.content); });
+        if (data.status === "handoff") {
+          setSubtitle("A team member has been asked to follow up");
+        }
+        return true;
+      })
+      .catch(function () { return false; });
+  }
+
+  function greet() {
+    var greeting =
+      (config && config.greeting) ||
+      "Hi! I'm the Bright Smile assistant. I can help with services, prices, opening hours or booking an appointment. How can I help?";
+    addMessage("bot", greeting);
+    if (config && config.enabled === false) {
+      input.disabled = true;
+      sendBtn.disabled = true;
+    }
+  }
+
+  /* The first open loads the config and replays any earlier conversation;
+     later opens just show what is already there. */
+  function start() {
+    if (started) return;
+    started = true;
+
+    var stored = readStoredSession();
+    loadConfig().then(function () {
+      if (!stored) { greet(); return; }
+      restore(stored).then(function (restored) {
+        if (restored) sessionId = stored;
+        else { storeSession(null); greet(); }
+      });
+    });
+  }
+
   function openPanel() {
     opened = true;
     panel.classList.add("is-open");
     panel.setAttribute("aria-hidden", "false");
     toggle.classList.add("is-open");
     toggle.setAttribute("aria-expanded", "true");
-    if (!history.length) {
-      addMessage("bot", "Hi! I'm the Bright Smile virtual assistant. I can help with services, prices, hours, or booking an appointment with " + "Dr. Asad" + ". How can I help?");
-    }
+    start();
     setTimeout(function () { input.focus(); }, 50);
   }
 
@@ -1241,7 +1324,6 @@ a.topbar__item:hover { color: #fff; }
     if (!text || sending) return;
 
     addMessage("user", text);
-    history.push({ role: "user", content: text });
     input.value = "";
     sending = true;
     sendBtn.disabled = true;
@@ -1250,18 +1332,31 @@ a.topbar__item:hover { color: #fff; }
     fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: history }),
+      body: JSON.stringify({
+        message: text,
+        sessionId: sessionId,
+        locale: (navigator.language || "").slice(0, 12)
+      })
     })
-      .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+      .then(function (r) {
+        return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; });
+      })
       .then(function (res) {
         typingEl.remove();
+
         if (!res.ok || !res.data.ok) {
-          var errText = (res.data && res.data.error) || "Something went wrong. Please call the clinic directly.";
-          addMessage("bot", errText);
+          /* An expired or unknown session should not leave the widget stuck
+             on it — drop it so the next message starts a fresh conversation. */
+          if (res.status === 404 || res.data.code === "SESSION_NOT_FOUND" || res.data.code === "SESSION_TOO_LONG") {
+            storeSession(null);
+          }
+          addMessage("bot", (res.data && res.data.error) || "Something went wrong. Please call the clinic directly.");
           return;
         }
+
+        if (res.data.sessionId && res.data.sessionId !== sessionId) storeSession(res.data.sessionId);
         addMessage("bot", res.data.reply);
-        history.push({ role: "assistant", content: res.data.reply });
+        if (res.data.handoff) setSubtitle("A team member has been asked to follow up");
       })
       .catch(function () {
         typingEl.remove();
