@@ -53,6 +53,8 @@ function buildSystemPrompt() {
     ...services.map((s) => `- ${s.name}: ${s.priceLabel} (id: ${s.id})`),
     "",
     "Appointment availability, booking, rescheduling and cancellation are NOT static — always call the matching tool to check or change them. Never state a slot is available without calling check_availability first.",
+    "",
+    "To look up, reschedule or cancel an appointment you need exactly two things: the patient's phone number and their 6-character booking reference. Reuse the exact values the patient already gave you earlier in this conversation — do not ask again for something you were told, and never invent, guess or alter a reference. There is no appointment id: never pass a reference in place of a phone number, or a phone number in place of a reference. The clinic system verifies both and refuses the change if either is wrong.",
   ].join("\n");
 
   const clockBlock = [
@@ -131,7 +133,7 @@ const TOOLS = [
   {
     name: "find_appointments_by_phone",
     description:
-      "Look up a patient's existing, non-cancelled appointments. Requires BOTH their phone number and the booking reference they were given when the appointment was made (a 6-character code like 4KP7MQ) — a phone number alone will return nothing, because phone numbers are not private. Required before rescheduling or cancelling. If the patient does not have their reference, do not try other tools: ask them to call the clinic.",
+      "Look up a patient's existing, non-cancelled appointments. Requires BOTH their phone number and the booking reference they were given when the appointment was made (a 6-character code like 4KP7MQ) — a phone number alone will return nothing, because phone numbers are not private. Use it to confirm the details before rescheduling or cancelling; those tools take the same phone and reference pair, so keep both to hand. If the patient does not have their reference, do not try other tools: ask them to call the clinic.",
     parameters: {
       type: "object",
       properties: {
@@ -143,28 +145,30 @@ const TOOLS = [
   },
   {
     name: "reschedule_appointment",
-    description: "Move an existing appointment to a new date/time. Requires the appointment id and reference from find_appointments_by_phone.",
+    description:
+      "Move an existing appointment to a new date/time. Identify it by the patient's phone number AND their 6-character booking reference — the same pair used to look it up. There is no appointment id.",
     parameters: {
       type: "object",
       properties: {
-        id: { type: "string" },
-        reference: { type: "string", description: "The booking reference, as returned by find_appointments_by_phone." },
+        phone: { type: "string", description: "The phone number the appointment was booked with." },
+        reference: { type: "string", description: "The 6-character booking reference given to the patient at booking time." },
         new_date: { type: "string", description: "YYYY-MM-DD" },
         new_time: { type: "string", description: "HH:MM 24-hour" },
       },
-      required: ["id", "reference", "new_date", "new_time"],
+      required: ["phone", "reference", "new_date", "new_time"],
     },
   },
   {
     name: "cancel_appointment",
-    description: "Cancel an existing appointment. Requires the appointment id and reference from find_appointments_by_phone. Only call after the patient explicitly confirms they want to cancel.",
+    description:
+      "Cancel an existing appointment. Identify it by the patient's phone number AND their 6-character booking reference — the same pair used to look it up. There is no appointment id. Only call after the patient explicitly confirms they want to cancel.",
     parameters: {
       type: "object",
       properties: {
-        id: { type: "string" },
-        reference: { type: "string", description: "The booking reference, as returned by find_appointments_by_phone." },
+        phone: { type: "string", description: "The phone number the appointment was booked with." },
+        reference: { type: "string", description: "The 6-character booking reference given to the patient at booking time." },
       },
-      required: ["id", "reference"],
+      required: ["phone", "reference"],
     },
   },
 ];
@@ -248,7 +252,7 @@ async function runTool(name, input) {
 
       case "reschedule_appointment": {
         const appt = await store.rescheduleAppointment({
-          id: input.id,
+          phone: input.phone,
           ref: input.reference,
           newDate: input.new_date,
           newTime: input.new_time,
@@ -258,7 +262,7 @@ async function runTool(name, input) {
       }
 
       case "cancel_appointment": {
-        const appt = await store.cancelAppointment({ id: input.id, ref: input.reference });
+        const appt = await store.cancelAppointment({ phone: input.phone, ref: input.reference });
         await notify(() => mailer.notifyAppointmentChange("cancelled", appt));
         return { success: true, appointment: store.publicView(appt) };
       }

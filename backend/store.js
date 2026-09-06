@@ -165,12 +165,12 @@ function normalizeRef(ref) {
 }
 
 // What a caller is allowed to see about an appointment. Deliberately drops
-// the stored phone number and the patient's free-text message — neither is
-// needed to reschedule or cancel, so neither is handed to the assistant.
+// the stored phone number, the patient's free-text message and the internal
+// id — none of them is needed to reschedule or cancel (the credential is the
+// phone number plus the reference), so none is handed to the assistant.
 function publicView(appt) {
   if (!appt) return null;
   return {
-    id: appt.id,
     ref: appt.ref,
     name: appt.name,
     service: appt.service,
@@ -229,21 +229,26 @@ async function findAppointmentsByPhone(phone, ref) {
   return rows.filter((a) => normalizeRef(a.ref) === r).map(publicView);
 }
 
-// Resolves an appointment for a change. Requires the reference as well as the
-// id, so a guessed id on its own gets nowhere. A wrong reference is reported
-// as "not found" rather than "wrong reference" — otherwise the error message
-// itself confirms that the id exists.
-async function requireAppointment(id, ref) {
-  const appt = await db.getAppointmentById(id);
+// Resolves an appointment for a change. The credential is the phone number
+// AND the booking reference together — exactly what is needed to read one —
+// so changing an appointment is never easier than viewing it. The internal
+// id is not part of the credential and is never given to the caller.
+//
+// Every failure mode (unknown reference, right reference with the wrong
+// phone, missing input) raises the SAME 404, so the error can never confirm
+// that a reference exists or that a phone number is associated with one.
+async function requireAppointment(phone, ref) {
   const r = normalizeRef(ref);
-  if (!appt || !r || normalizeRef(appt.ref) !== r) {
-    throw fail("Appointment not found. Please check the booking reference.", 404);
-  }
+  const p = phoneKey(phone);
+  const notFound = () => fail("Appointment not found. Please check the phone number and booking reference.", 404);
+  if (!r || !p) throw notFound();
+  const appt = await db.getAppointmentByRef(r);
+  if (!appt || phoneKey(appt.phone) !== p) throw notFound();
   return appt;
 }
 
-async function rescheduleAppointment({ id, ref, newDate, newTime }) {
-  const appt = await requireAppointment(id, ref);
+async function rescheduleAppointment({ phone, ref, newDate, newTime }) {
+  const appt = await requireAppointment(phone, ref);
   if (appt.status === "cancelled") throw fail("This appointment was already cancelled.", 409);
   if (!isValidDate(newDate)) throw fail("Invalid date format. Use YYYY-MM-DD.", 400);
   if (!isValidTime(newTime)) throw fail("Invalid or out-of-hours time slot.", 400);
@@ -256,7 +261,7 @@ async function rescheduleAppointment({ id, ref, newDate, newTime }) {
 
   let updated;
   try {
-    updated = await db.updateAppointmentSchedule(id, newDate, newTime, new Date().toISOString());
+    updated = await db.updateAppointmentSchedule(appt.id, newDate, newTime, new Date().toISOString());
   } catch (err) {
     if (err.message === "SLOT_TAKEN") throw fail("That slot is already booked.", 409);
     throw err;
@@ -265,9 +270,9 @@ async function rescheduleAppointment({ id, ref, newDate, newTime }) {
   return updated;
 }
 
-async function cancelAppointment({ id, ref }) {
-  await requireAppointment(id, ref);
-  const cancelled = await db.cancelAppointmentById(id, new Date().toISOString());
+async function cancelAppointment({ phone, ref }) {
+  const appt = await requireAppointment(phone, ref);
+  const cancelled = await db.cancelAppointmentById(appt.id, new Date().toISOString());
   if (!cancelled) throw fail("This appointment was already cancelled.", 409);
   return cancelled;
 }

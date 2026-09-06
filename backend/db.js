@@ -208,6 +208,12 @@ function createPostgresDriver(connectionString) {
       return toEntry(rows[0]);
     },
 
+    // appointments_ref_unique guarantees at most one row per reference.
+    async getAppointmentByRef(ref) {
+      const { rows } = await query(`SELECT ${COLUMNS} FROM appointments WHERE ref = $1`, [ref]);
+      return toEntry(rows[0]);
+    },
+
     async updateAppointmentSchedule(id, date, time, updatedAt) {
       try {
         const { rows } = await query(
@@ -345,6 +351,11 @@ function createFileDriver() {
 
     async getAppointmentById(id) {
       return load().find((a) => a.id === id) || null;
+    },
+
+    // Mirrors the Postgres lookup; refs are stored already upper-cased.
+    async getAppointmentByRef(ref) {
+      return load().find((a) => String(a.ref || "").toUpperCase() === ref) || null;
     },
 
     async updateAppointmentSchedule(id, date, time, updatedAt) {
