@@ -35,7 +35,8 @@ function sourceLabel(entry) {
 }
 
 function notifyNewAppointment(entry) {
-  return send(`New appointment — ${entry.name}`, [
+  return send(`New appointment — ${entry.name} (${entry.ref})`, [
+    `Reference: ${entry.ref}`,
     `Name: ${entry.name}`,
     `Phone: ${entry.phone}`,
     `Date: ${entry.date}`,
@@ -48,7 +49,8 @@ function notifyNewAppointment(entry) {
 }
 
 function notifyAppointmentChange(action, entry) {
-  return send(`Appointment ${action} — ${entry.name}`, [
+  return send(`Appointment ${action} — ${entry.name} (${entry.ref})`, [
+    `Reference: ${entry.ref}`,
     `Name: ${entry.name}`,
     `Phone: ${entry.phone}`,
     `Date: ${entry.date}`,

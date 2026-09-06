@@ -14,6 +14,15 @@ function getClient() {
   return client;
 }
 
+// The system prompt is split into two blocks on purpose.
+//
+// Block 1 is everything that does not change between requests: the master
+// prompt plus the clinic profile and price list. It carries the cache
+// breakpoint, so it is billed in full once and read from cache afterwards.
+//
+// Block 2 is only today's date and the current clock time. That changes every
+// minute, so it MUST sit after the breakpoint — with the clock inside the
+// cached block, the cached prefix would change every minute and never be hit.
 function buildSystemPrompt() {
   const clinic = store.getClinicInfo();
   const services = store.getServices();
@@ -23,10 +32,8 @@ function buildSystemPrompt() {
   const dataBlock = [
     "",
     "============================================================",
-    "LIVE AUTHORIZED CLINIC DATABASE (this overrides anything above it says by default — use it as the single source of truth)",
+    "LIVE AUTHORIZED CLINIC DATABASE (this overrides anything above it — use it as the single source of truth)",
     "============================================================",
-    `Today's date (clinic-local, Asia/Riyadh): ${now.dateStr}`,
-    `Current clinic-local time: ${currentTime}`,
     `Clinic name: ${clinic.name}`,
     `Dentist: ${clinic.dentist}`,
     `Opening hours: ${clinic.hoursLabel}`,
@@ -41,7 +48,20 @@ function buildSystemPrompt() {
     "Appointment availability, booking, rescheduling and cancellation are NOT static — always call the matching tool to check or change them. Never state a slot is available without calling check_availability first.",
   ].join("\n");
 
-  return MASTER_PROMPT + dataBlock;
+  const clockBlock = [
+    "",
+    "------------------------------------------------------------",
+    "CURRENT DATE AND TIME",
+    "------------------------------------------------------------",
+    `Today's date (clinic-local, Asia/Riyadh): ${now.dateStr}`,
+    `Current clinic-local time: ${currentTime}`,
+    'Resolve "today", "tomorrow" and "next week" against this date, never against anything you remember.',
+  ].join("\n");
+
+  return [
+    { type: "text", text: MASTER_PROMPT + dataBlock, cache_control: { type: "ephemeral" } },
+    { type: "text", text: clockBlock },
+  ];
 }
 
 const TOOLS = [
@@ -100,33 +120,40 @@ const TOOLS = [
   {
     name: "find_appointments_by_phone",
     description:
-      "Look up a patient's existing, non-cancelled appointments by their phone number. Required before rescheduling or cancelling — never act on an appointment without first verifying it through this tool.",
+      "Look up a patient's existing, non-cancelled appointments. Requires BOTH their phone number and the booking reference they were given when the appointment was made (a 6-character code like 4KP7MQ) — a phone number alone will return nothing, because phone numbers are not private. Required before rescheduling or cancelling. If the patient does not have their reference, do not try other tools: ask them to call the clinic.",
     input_schema: {
       type: "object",
-      properties: { phone: { type: "string" } },
-      required: ["phone"],
+      properties: {
+        phone: { type: "string" },
+        reference: { type: "string", description: "The 6-character booking reference given to the patient at booking time." },
+      },
+      required: ["phone", "reference"],
     },
   },
   {
     name: "reschedule_appointment",
-    description: "Move an existing appointment to a new date/time. Requires the appointment id from find_appointments_by_phone.",
+    description: "Move an existing appointment to a new date/time. Requires the appointment id and reference from find_appointments_by_phone.",
     input_schema: {
       type: "object",
       properties: {
         id: { type: "string" },
+        reference: { type: "string", description: "The booking reference, as returned by find_appointments_by_phone." },
         new_date: { type: "string", description: "YYYY-MM-DD" },
         new_time: { type: "string", description: "HH:MM 24-hour" },
       },
-      required: ["id", "new_date", "new_time"],
+      required: ["id", "reference", "new_date", "new_time"],
     },
   },
   {
     name: "cancel_appointment",
-    description: "Cancel an existing appointment. Requires the appointment id from find_appointments_by_phone. Only call after the patient explicitly confirms they want to cancel.",
+    description: "Cancel an existing appointment. Requires the appointment id and reference from find_appointments_by_phone. Only call after the patient explicitly confirms they want to cancel.",
     input_schema: {
       type: "object",
-      properties: { id: { type: "string" } },
-      required: ["id"],
+      properties: {
+        id: { type: "string" },
+        reference: { type: "string", description: "The booking reference, as returned by find_appointments_by_phone." },
+      },
+      required: ["id", "reference"],
     },
   },
 ];
@@ -156,7 +183,13 @@ function runTool(name, input) {
 
       case "find_next_available": {
         const result = store.findNextAvailable({ fromDate: input.from_date, time: input.time });
-        return result || { found: false };
+        return (
+          result || {
+            found: false,
+            searchedDays: 30,
+            note: "Nothing open in the next 30 days from that date. Do not keep calling this tool — tell the patient and offer to have the clinic call them back.",
+          }
+        );
       }
 
       case "book_appointment": {
@@ -169,32 +202,54 @@ function runTool(name, input) {
           message: input.message,
         });
         mailer.notifyNewAppointment(entry);
-        return { success: true, appointment: entry };
+        // publicView drops the stored phone number and the patient's private
+        // note before anything is handed to the model.
+        return {
+          success: true,
+          appointment: store.publicView(entry),
+          tell_the_patient:
+            `Their booking reference is ${entry.ref}. They must keep it — it is required to change or cancel this appointment.`,
+        };
       }
 
-      case "find_appointments_by_phone":
-        return { appointments: store.findAppointmentsByPhone(input.phone) };
+      case "find_appointments_by_phone": {
+        const appointments = store.findAppointmentsByPhone(input.phone, input.reference);
+        if (!appointments.length) {
+          return {
+            appointments: [],
+            note: "No appointment matches that phone number and reference together. Do not guess or retry with a different reference — ask the patient to check the reference they were given, or to call the clinic.",
+          };
+        }
+        return { appointments };
+      }
 
       case "reschedule_appointment": {
         const appt = store.rescheduleAppointment({
           id: input.id,
+          ref: input.reference,
           newDate: input.new_date,
           newTime: input.new_time,
         });
         mailer.notifyAppointmentChange("rescheduled", appt);
-        return { success: true, appointment: appt };
+        return { success: true, appointment: store.publicView(appt) };
       }
 
       case "cancel_appointment": {
-        const appt = store.cancelAppointment({ id: input.id });
+        const appt = store.cancelAppointment({ id: input.id, ref: input.reference });
         mailer.notifyAppointmentChange("cancelled", appt);
-        return { success: true, appointment: appt };
+        return { success: true, appointment: store.publicView(appt) };
       }
 
       default:
         return { error: `Unknown tool: ${name}` };
     }
   } catch (err) {
+    // Storage failures carry file paths and internal detail — keep those out
+    // of the model's context, and therefore out of the patient's chat.
+    if (err.status === 500) {
+      console.error(`Tool "${name}" failed:`, err);
+      return { error: "That information isn't available right now. Ask the patient to call the clinic." };
+    }
     return { error: err.message };
   }
 }
@@ -216,6 +271,8 @@ async function respond(clientMessages) {
     const resp = await anthropic.messages.create({
       model: MODEL,
       max_tokens: 1024,
+      // buildSystemPrompt() returns two blocks: a large cached one and a tiny
+      // uncached clock. See the comment on that function.
       system,
       tools: TOOLS,
       messages,

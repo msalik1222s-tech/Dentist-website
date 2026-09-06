@@ -15,6 +15,7 @@
   th, td { text-align: left; padding: .6rem .5rem; border-bottom: 1px solid #e4e4e4; vertical-align: top; }
   th { background: #f5f7f6; }
   #status { color: #a3342b; margin-bottom: 1rem; }
+  code { font-size: .85rem; letter-spacing: .04em; background: #f0f4f3; padding: .1rem .35rem; border-radius: 4px; }
 </style>
 </head>
 <body>
@@ -26,14 +27,21 @@
   <p id="status"></p>
   <table id="results" hidden>
     <thead>
-      <tr><th>Submitted</th><th>Name</th><th>Phone</th><th>Date</th><th>Time</th><th>Service</th><th>Status</th><th>Message</th></tr>
+      <tr><th>Submitted</th><th>Ref</th><th>Name</th><th>Phone</th><th>Date</th><th>Time</th><th>Service</th><th>Status</th><th>Message</th></tr>
     </thead>
     <tbody id="rows"></tbody>
   </table>
 
 <script>
+// Everything lives in an IIFE. At global scope `var status = <element>` does
+// not create a variable — it assigns to window.status, which the browser
+// coerces to a string, so every `status.textContent = ...` below silently did
+// nothing and errors never appeared on screen.
+(function () {
+  "use strict";
+
   var keyInput = document.getElementById("key");
-  var status = document.getElementById("status");
+  var statusEl = document.getElementById("status");
   var table = document.getElementById("results");
   var rows = document.getElementById("rows");
 
@@ -48,22 +56,23 @@
 
   function load() {
     var key = keyInput.value.trim();
-    if (!key) { status.textContent = "Enter the admin key."; return; }
+    if (!key) { statusEl.textContent = "Enter the admin key."; return; }
     sessionStorage.setItem("adminKey", key);
-    status.textContent = "Loading...";
+    statusEl.textContent = "Loading...";
     table.hidden = true;
 
     fetch("/api/appointments", { headers: { "x-admin-key": key } })
       .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
       .then(function (res) {
         if (!res.ok) {
-          status.textContent = res.data.error || "Failed to load.";
+          statusEl.textContent = (res.data && res.data.error) || "Failed to load.";
           return;
         }
-        status.textContent = res.data.appointments.length + " request(s).";
+        statusEl.textContent = res.data.appointments.length + " request(s).";
         rows.innerHTML = res.data.appointments.map(function (a) {
           return "<tr>" +
             "<td>" + escapeHtml(new Date(a.createdAt).toLocaleString()) + "</td>" +
+            "<td><code>" + escapeHtml(a.ref || "-") + "</code></td>" +
             "<td>" + escapeHtml(a.name) + "</td>" +
             "<td>" + escapeHtml(a.phone) + "</td>" +
             "<td>" + escapeHtml(a.date) + "</td>" +
@@ -75,11 +84,15 @@
         }).join("");
         table.hidden = false;
       })
-      .catch(function () { status.textContent = "Network error."; });
+      .catch(function () { statusEl.textContent = "Network error."; });
   }
 
   document.getElementById("load").addEventListener("click", load);
+  keyInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") load();
+  });
   if (savedKey) load();
+})();
 </script>
 </body>
 </html>
