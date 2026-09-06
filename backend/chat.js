@@ -158,7 +158,19 @@ const TOOLS = [
   },
 ];
 
-function runTool(name, input) {
+// A serverless instance is frozen once the response is sent, so email has to
+// be awaited rather than fired and forgotten — but it must never sink a
+// booking that is already saved.
+async function notify(sendFn) {
+  try {
+    await sendFn();
+  } catch (err) {
+    console.error("Email notification failed:", err.message);
+  }
+}
+
+// Async because every store lookup now goes to the database.
+async function runTool(name, input) {
   try {
     switch (name) {
       case "get_clinic_info":
@@ -169,7 +181,7 @@ function runTool(name, input) {
 
       case "check_availability": {
         if (!store.isValidDate(input.date)) return { error: "Invalid date format, expected YYYY-MM-DD." };
-        const availableSlots = store.getAvailableSlots(input.date);
+        const availableSlots = await store.getAvailableSlots(input.date);
         if (input.time) {
           return {
             date: input.date,
@@ -182,7 +194,7 @@ function runTool(name, input) {
       }
 
       case "find_next_available": {
-        const result = store.findNextAvailable({ fromDate: input.from_date, time: input.time });
+        const result = await store.findNextAvailable({ fromDate: input.from_date, time: input.time });
         return (
           result || {
             found: false,
@@ -193,7 +205,7 @@ function runTool(name, input) {
       }
 
       case "book_appointment": {
-        const entry = store.createAppointment({
+        const entry = await store.createAppointment({
           name: input.name,
           phone: input.phone,
           service: input.service,
@@ -201,7 +213,7 @@ function runTool(name, input) {
           time: input.time,
           message: input.message,
         });
-        mailer.notifyNewAppointment(entry);
+        await notify(() => mailer.notifyNewAppointment(entry));
         // publicView drops the stored phone number and the patient's private
         // note before anything is handed to the model.
         return {
@@ -213,7 +225,7 @@ function runTool(name, input) {
       }
 
       case "find_appointments_by_phone": {
-        const appointments = store.findAppointmentsByPhone(input.phone, input.reference);
+        const appointments = await store.findAppointmentsByPhone(input.phone, input.reference);
         if (!appointments.length) {
           return {
             appointments: [],
@@ -224,19 +236,19 @@ function runTool(name, input) {
       }
 
       case "reschedule_appointment": {
-        const appt = store.rescheduleAppointment({
+        const appt = await store.rescheduleAppointment({
           id: input.id,
           ref: input.reference,
           newDate: input.new_date,
           newTime: input.new_time,
         });
-        mailer.notifyAppointmentChange("rescheduled", appt);
+        await notify(() => mailer.notifyAppointmentChange("rescheduled", appt));
         return { success: true, appointment: store.publicView(appt) };
       }
 
       case "cancel_appointment": {
-        const appt = store.cancelAppointment({ id: input.id, ref: input.reference });
-        mailer.notifyAppointmentChange("cancelled", appt);
+        const appt = await store.cancelAppointment({ id: input.id, ref: input.reference });
+        await notify(() => mailer.notifyAppointmentChange("cancelled", appt));
         return { success: true, appointment: store.publicView(appt) };
       }
 
@@ -288,13 +300,15 @@ async function respond(clientMessages) {
 
     messages.push({ role: "assistant", content: resp.content });
 
-    const toolResults = resp.content
-      .filter((b) => b.type === "tool_use")
-      .map((block) => ({
-        type: "tool_result",
-        tool_use_id: block.id,
-        content: JSON.stringify(runTool(block.name, block.input || {})),
-      }));
+    const toolResults = await Promise.all(
+      resp.content
+        .filter((b) => b.type === "tool_use")
+        .map(async (block) => ({
+          type: "tool_result",
+          tool_use_id: block.id,
+          content: JSON.stringify(await runTool(block.name, block.input || {})),
+        }))
+    );
 
     messages.push({ role: "user", content: toolResults });
   }

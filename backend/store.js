@@ -1,14 +1,21 @@
-const fs = require("fs");
-const path = require("path");
-const crypto = require("crypto");
+// Appointment, slot and service logic.
+//
+// Storage goes through db.js (Postgres, or a JSON file for local dev), so
+// everything that touches appointments is async.
+//
+// Privacy model: a phone number is not a secret. Every booking therefore also
+// gets a short reference, given to the patient at booking time, and reading or
+// changing an appointment needs BOTH the phone number and that reference.
+// publicView() decides what a caller is allowed to see.
 
-const DATA_FILE = path.join(__dirname, "data", "appointments.json");
-const TMP_FILE = DATA_FILE + ".tmp";
+const crypto = require("crypto");
+const db = require("./db");
+
 const CLINIC = require("./data/clinic.json");
 const SERVICES = require("./data/services.json");
 
 // Errors carry a `status` so callers can tell "the patient did something
-// invalid" (400/409, safe to show them) from "storage is broken" (500, log
+// invalid" (400/404/409, safe to show them) from "storage is broken" (500, log
 // it and show a generic message).
 function fail(message, status) {
   const err = new Error(message);
@@ -16,60 +23,19 @@ function fail(message, status) {
   return err;
 }
 
-// Reads the appointments file. A missing or empty file means "no appointments
-// yet" — anything else that fails to parse is a hard error on purpose.
-// Returning [] on a corrupt file was silent data loss: the next booking would
-// save a one-item list straight over every existing appointment.
-function loadAppointments() {
-  let raw;
-  try {
-    raw = fs.readFileSync(DATA_FILE, "utf8");
-  } catch (err) {
-    if (err.code === "ENOENT") return [];
-    throw fail(`Could not read ${DATA_FILE}: ${err.message}`, 500);
-  }
-
-  if (!raw.trim()) return [];
-
-  let parsed;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (err) {
-    throw fail(
-      `${DATA_FILE} is not valid JSON (${err.message}). Refusing to continue so the existing ` +
-        `appointments aren't overwritten — restore the file from a backup or repair it by hand.`,
-      500
-    );
-  }
-
-  if (!Array.isArray(parsed)) {
-    throw fail(`${DATA_FILE} must contain a JSON array of appointments.`, 500);
-  }
-  return parsed;
-}
-
-// Writes to a temp file first and renames it into place, so a crash or a full
-// disk mid-write leaves the old file intact instead of a half-written one.
-function saveAppointments(list) {
-  fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
-  try {
-    fs.writeFileSync(TMP_FILE, JSON.stringify(list, null, 2));
-    fs.renameSync(TMP_FILE, DATA_FILE);
-  } catch (err) {
-    try {
-      fs.unlinkSync(TMP_FILE);
-    } catch {
-      /* nothing to clean up */
-    }
-    throw fail(`Could not save appointments to ${DATA_FILE}: ${err.message}`, 500);
-  }
-}
-
 // Strips newlines/control characters so patient-supplied text can't break
 // out of a single line (e.g. email header/subject injection via the name
 // field, or garbled rows in admin.html).
 function stripControlChars(s) {
   return String(s || "").replace(/[\r\n\t\x00-\x1f\x7f]+/g, " ").trim();
+}
+
+// Compare the last 9 digits so "0501234567", "+966 50 123 4567" and
+// "966501234567" all resolve to the same patient. This is what gets stored in
+// the phone_digits column and what lookups are keyed on.
+function phoneKey(phone) {
+  const digits = String(phone || "").replace(/[^0-9]/g, "");
+  return digits.length > 9 ? digits.slice(-9) : digits;
 }
 
 function getClinicInfo() {
@@ -124,43 +90,50 @@ function getClinicNow() {
   };
 }
 
-function getAvailableSlots(date) {
-  if (!isValidDate(date)) return [];
-  const { dateStr: todayStr, minutesSinceMidnight: nowMinutes } = getClinicNow();
-  if (date < todayStr) return [];
-
-  const all = loadAppointments();
-  const booked = new Set(
-    all
-      .filter((a) => a.date === date && a.status !== "cancelled" && a.time)
-      .map((a) => a.time)
-  );
-  let slots = generateDaySlots().filter((t) => !booked.has(t));
-
-  if (date === todayStr) {
-    slots = slots.filter((t) => {
-      const [h, m] = t.split(":").map(Number);
-      return h * 60 + m > nowMinutes;
-    });
-  }
-
-  return slots;
-}
-
-function isSlotAvailable(date, time) {
-  return getAvailableSlots(date).includes(time);
-}
-
 function addDays(dateStr, days) {
   const dt = parseDateStrict(dateStr);
   dt.setUTCDate(dt.getUTCDate() + days);
   return dt.toISOString().slice(0, 10);
 }
 
-function findNextAvailable({ fromDate, time, maxDays = 30 }) {
-  let date = isValidDate(fromDate) ? fromDate : getClinicNow().dateStr;
+// Shared by getAvailableSlots and findNextAvailable so both apply the same
+// "no slots in the past, none earlier than right now on today" rules.
+function openSlotsFor(date, bookedTimes, clinicNow) {
+  if (date < clinicNow.dateStr) return [];
+  const booked = new Set(bookedTimes || []);
+  let slots = generateDaySlots().filter((t) => !booked.has(t));
+  if (date === clinicNow.dateStr) {
+    slots = slots.filter((t) => {
+      const [h, m] = t.split(":").map(Number);
+      return h * 60 + m > clinicNow.minutesSinceMidnight;
+    });
+  }
+  return slots;
+}
+
+async function getAvailableSlots(date) {
+  if (!isValidDate(date)) return [];
+  const clinicNow = getClinicNow();
+  if (date < clinicNow.dateStr) return [];
+  return openSlotsFor(date, await db.getBookedTimes(date), clinicNow);
+}
+
+async function isSlotAvailable(date, time) {
+  return (await getAvailableSlots(date)).includes(time);
+}
+
+async function findNextAvailable({ fromDate, time, maxDays = 30 }) {
+  const clinicNow = getClinicNow();
+  let start = isValidDate(fromDate) ? fromDate : clinicNow.dateStr;
+  if (start < clinicNow.dateStr) start = clinicNow.dateStr;
+  const end = addDays(start, maxDays - 1);
+
+  // Single query for the whole window instead of one per day.
+  const bookedByDate = await db.getBookedTimesByRange(start, end);
+
+  let date = start;
   for (let i = 0; i < maxDays; i++) {
-    const slots = getAvailableSlots(date);
+    const slots = openSlotsFor(date, bookedByDate.get(date), clinicNow);
     if (time) {
       if (slots.includes(time)) return { date, time };
     } else if (slots.length) {
@@ -172,41 +145,30 @@ function findNextAvailable({ fromDate, time, maxDays = 30 }) {
 }
 
 // ---------- booking references ----------
-// A phone number is not a secret: anyone who knows one could previously read,
-// move or cancel that patient's appointment. So every booking also gets a
-// short reference, given to the patient at booking time, and looking an
-// appointment up needs BOTH. Ambiguous characters (0/O, 1/I) are left out so
-// it survives being read out over the phone.
+// Ambiguous characters (0/O, 1/I) are left out so a reference survives being
+// read out over the phone. Uniqueness is enforced by a unique index in the
+// database, not by scanning the table: createAppointment retries on collision.
 const REF_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
 const REF_LENGTH = 6;
+const REF_ATTEMPTS = 50;
 
-function generateRef(existing) {
-  const taken = new Set(existing.map((a) => String(a.ref || "").toUpperCase()));
-  for (let attempt = 0; attempt < 50; attempt++) {
-    let ref = "";
-    for (let i = 0; i < REF_LENGTH; i++) {
-      ref += REF_ALPHABET[crypto.randomInt(REF_ALPHABET.length)];
-    }
-    if (!taken.has(ref)) return ref;
+function generateRef() {
+  let ref = "";
+  for (let i = 0; i < REF_LENGTH; i++) {
+    ref += REF_ALPHABET[crypto.randomInt(REF_ALPHABET.length)];
   }
-  throw fail("Could not allocate a unique appointment reference.", 500);
+  return ref;
 }
 
 function normalizeRef(ref) {
   return String(ref || "").toUpperCase().replace(/[^0-9A-Z]/g, "");
 }
 
-// Compare the last 9 digits so "0501234567", "+966 50 123 4567" and
-// "966501234567" all resolve to the same patient.
-function phoneKey(phone) {
-  const digits = String(phone || "").replace(/[^0-9]/g, "");
-  return digits.length > 9 ? digits.slice(-9) : digits;
-}
-
 // What a caller is allowed to see about an appointment. Deliberately drops
 // the stored phone number and the patient's free-text message — neither is
 // needed to reschedule or cancel, so neither is handed to the assistant.
 function publicView(appt) {
+  if (!appt) return null;
   return {
     id: appt.id,
     ref: appt.ref,
@@ -218,21 +180,20 @@ function publicView(appt) {
   };
 }
 
-function createAppointment({ name, phone, service, date, time, message, source, status }) {
+async function createAppointment({ name, phone, service, date, time, message, source, status }) {
   if (!name || !String(name).trim()) throw fail("Patient name is required.", 400);
   if (!phone || !String(phone).trim()) throw fail("Phone number is required.", 400);
   if (!isValidDate(date)) throw fail("Invalid date format. Use YYYY-MM-DD.", 400);
   if (!isValidTime(time)) throw fail("Invalid or out-of-hours time slot.", 400);
   if (date < getClinicNow().dateStr) throw fail("Cannot book an appointment in the past.", 400);
-  if (!isSlotAvailable(date, time)) throw fail("That slot is already booked.", 409);
+  if (!(await isSlotAvailable(date, time))) throw fail("That slot is already booked.", 409);
 
-  const list = loadAppointments();
-
-  const entry = {
+  const cleanPhone = stripControlChars(phone).slice(0, 30);
+  const base = {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
-    ref: generateRef(list),
     name: stripControlChars(name).slice(0, 100),
-    phone: stripControlChars(phone).slice(0, 30),
+    phone: cleanPhone,
+    phoneDigits: phoneKey(cleanPhone),
     service: stripControlChars(service || "").slice(0, 100),
     date,
     time,
@@ -242,61 +203,91 @@ function createAppointment({ name, phone, service, date, time, message, source, 
     createdAt: new Date().toISOString(),
   };
 
-  list.push(entry);
-  saveAppointments(list);
-  return entry;
+  // The unique index on `ref` is the real guard. A collision is astronomically
+  // unlikely (32^6), but retrying is cheaper than pre-scanning every booking.
+  for (let attempt = 0; attempt < REF_ATTEMPTS; attempt++) {
+    try {
+      return await db.insertAppointment({ ...base, ref: generateRef() });
+    } catch (err) {
+      if (err.message === "REF_TAKEN") continue;
+      // The availability check above can lose a race against a booking on
+      // another instance; the database's unique index is what actually decides.
+      if (err.message === "SLOT_TAKEN") throw fail("That slot is already booked.", 409);
+      throw err;
+    }
+  }
+  throw fail("Could not allocate a unique appointment reference.", 500);
 }
 
 // Needs the phone number AND the booking reference. Either one alone returns
 // nothing — that is the whole point of the reference.
-function findAppointmentsByPhone(phone, ref) {
+async function findAppointmentsByPhone(phone, ref) {
   const p = phoneKey(phone);
   const r = normalizeRef(ref);
   if (!p || !r) return [];
-  return loadAppointments()
-    .filter((a) => a.status !== "cancelled")
-    .filter((a) => phoneKey(a.phone) === p && normalizeRef(a.ref) === r)
-    .map(publicView);
+  const rows = await db.findByPhoneDigits(p);
+  return rows.filter((a) => normalizeRef(a.ref) === r).map(publicView);
 }
 
 // Resolves an appointment for a change. Requires the reference as well as the
 // id, so a guessed id on its own gets nowhere. A wrong reference is reported
 // as "not found" rather than "wrong reference" — otherwise the error message
 // itself confirms that the id exists.
-function requireAppointment(list, id, ref) {
-  const appt = list.find((a) => a.id === id);
-  if (!appt || !normalizeRef(ref) || normalizeRef(appt.ref) !== normalizeRef(ref)) {
+async function requireAppointment(id, ref) {
+  const appt = await db.getAppointmentById(id);
+  const r = normalizeRef(ref);
+  if (!appt || !r || normalizeRef(appt.ref) !== r) {
     throw fail("Appointment not found. Please check the booking reference.", 404);
   }
   return appt;
 }
 
-function rescheduleAppointment({ id, ref, newDate, newTime }) {
-  const list = loadAppointments();
-  const appt = requireAppointment(list, id, ref);
+async function rescheduleAppointment({ id, ref, newDate, newTime }) {
+  const appt = await requireAppointment(id, ref);
   if (appt.status === "cancelled") throw fail("This appointment was already cancelled.", 409);
   if (!isValidDate(newDate)) throw fail("Invalid date format. Use YYYY-MM-DD.", 400);
   if (!isValidTime(newTime)) throw fail("Invalid or out-of-hours time slot.", 400);
   if (newDate < getClinicNow().dateStr) throw fail("Cannot reschedule to a date in the past.", 400);
+
   const sameSlot = appt.date === newDate && appt.time === newTime;
-  if (!sameSlot && !isSlotAvailable(newDate, newTime)) {
+  if (!sameSlot && !(await isSlotAvailable(newDate, newTime))) {
     throw fail("That slot is already booked.", 409);
   }
-  appt.date = newDate;
-  appt.time = newTime;
-  appt.updatedAt = new Date().toISOString();
-  saveAppointments(list);
-  return appt;
+
+  let updated;
+  try {
+    updated = await db.updateAppointmentSchedule(id, newDate, newTime, new Date().toISOString());
+  } catch (err) {
+    if (err.message === "SLOT_TAKEN") throw fail("That slot is already booked.", 409);
+    throw err;
+  }
+  if (!updated) throw fail("This appointment was already cancelled.", 409);
+  return updated;
 }
 
-function cancelAppointment({ id, ref }) {
-  const list = loadAppointments();
-  const appt = requireAppointment(list, id, ref);
-  if (appt.status === "cancelled") throw fail("This appointment was already cancelled.", 409);
-  appt.status = "cancelled";
-  appt.updatedAt = new Date().toISOString();
-  saveAppointments(list);
-  return appt;
+async function cancelAppointment({ id, ref }) {
+  await requireAppointment(id, ref);
+  const cancelled = await db.cancelAppointmentById(id, new Date().toISOString());
+  if (!cancelled) throw fail("This appointment was already cancelled.", 409);
+  return cancelled;
+}
+
+// Admin-only view: the full rows, phone numbers included. Guarded by ADMIN_KEY
+// at the route, never exposed to the chat assistant.
+function loadAppointments() {
+  return db.listAppointments();
+}
+
+// Returns true when this ip has already used up its allowance for the bucket.
+async function isRateLimited(bucket, ip, windowMs, maxPerWindow) {
+  try {
+    const priorHits = await db.countRateLimitHits(bucket, ip, windowMs);
+    return priorHits >= maxPerWindow;
+  } catch (err) {
+    // Never let a rate-limit lookup take the whole endpoint down.
+    console.error("Rate limit check failed:", err.message);
+    return false;
+  }
 }
 
 module.exports = {
@@ -313,7 +304,7 @@ module.exports = {
   rescheduleAppointment,
   cancelAppointment,
   loadAppointments,
-  saveAppointments,
+  isRateLimited,
   isValidDate,
   isValidTime,
 };
