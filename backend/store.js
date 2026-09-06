@@ -10,6 +10,7 @@
 
 const crypto = require("crypto");
 const db = require("./db");
+const mailer = require("./mailer");
 
 const CLINIC = require("./data/clinic.json");
 const SERVICES = require("./data/services.json");
@@ -247,6 +248,27 @@ async function requireAppointment(phone, ref) {
   return appt;
 }
 
+// The clinic's notification email legitimately needs the full row — the staff
+// have to phone the patient back, and the patient's note is the point of the
+// message. That is the ONLY legitimate consumer of unredacted appointment data
+// on the change path, so it is served from inside this module: the raw row is
+// handed straight to the mailer and never returned to a caller.
+//
+// This is what lets rescheduleAppointment/cancelAppointment return publicView()
+// unconditionally. A future caller cannot forget to redact, because there is no
+// unredacted value for it to receive.
+//
+// Awaited, not fired and forgotten: a serverless instance is frozen once the
+// response is sent. Failures are swallowed — a broken SMTP server must never
+// undo a change that is already committed to the database.
+async function notifyClinic(action, rawEntry) {
+  try {
+    await mailer.notifyAppointmentChange(action, rawEntry);
+  } catch (err) {
+    console.error(`Email notification failed for a ${action} appointment:`, err.message);
+  }
+}
+
 async function rescheduleAppointment({ phone, ref, newDate, newTime }) {
   const appt = await requireAppointment(phone, ref);
   if (appt.status === "cancelled") throw fail("This appointment was already cancelled.", 409);
@@ -267,14 +289,16 @@ async function rescheduleAppointment({ phone, ref, newDate, newTime }) {
     throw err;
   }
   if (!updated) throw fail("This appointment was already cancelled.", 409);
-  return updated;
+  await notifyClinic("rescheduled", updated);
+  return publicView(updated);
 }
 
 async function cancelAppointment({ phone, ref }) {
   const appt = await requireAppointment(phone, ref);
   const cancelled = await db.cancelAppointmentById(appt.id, new Date().toISOString());
   if (!cancelled) throw fail("This appointment was already cancelled.", 409);
-  return cancelled;
+  await notifyClinic("cancelled", cancelled);
+  return publicView(cancelled);
 }
 
 // Admin-only view: the full rows, phone numbers included. Guarded by ADMIN_KEY

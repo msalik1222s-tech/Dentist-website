@@ -184,8 +184,44 @@ async function notify(sendFn) {
   }
 }
 
+// Defence in depth at the one boundary where clinic data reaches the model.
+//
+// store.js is the real guarantee: appointment operations return publicView().
+// This is the backstop for a future tool that hands back a row from somewhere
+// else and forgets. It can only ever REMOVE fields, never add them, and it
+// logs loudly when it fires — it is a canary, not a silencer.
+//
+// Deliberately scoped to appointment-shaped payloads. A blanket "strip every
+// `phone`" rule would break get_clinic_info, whose phone number is the
+// clinic's own and is exactly what a patient is asking for.
+const PRIVATE_APPOINTMENT_FIELDS = ["id", "phone", "phoneDigits", "phone_digits", "message"];
+
+function scrubAppointmentPayloads(result, toolName) {
+  if (!result || typeof result !== "object") return result;
+  for (const key of ["appointment", "appointments"]) {
+    const value = result[key];
+    if (!value || typeof value !== "object") continue;
+    for (const row of Array.isArray(value) ? value : [value]) {
+      if (!row || typeof row !== "object") continue;
+      for (const field of PRIVATE_APPOINTMENT_FIELDS) {
+        if (field in row) {
+          console.error(
+            `SECURITY: tool "${toolName}" returned a private field "${field}" in its ${key} payload; stripped before it reached the model. Fix the caller.`
+          );
+          delete row[field];
+        }
+      }
+    }
+  }
+  return result;
+}
+
 // Async because every store lookup goes to the database.
 async function runTool(name, input) {
+  return scrubAppointmentPayloads(await executeTool(name, input), name);
+}
+
+async function executeTool(name, input) {
   try {
     switch (name) {
       case "get_clinic_info":
@@ -250,21 +286,21 @@ async function runTool(name, input) {
         return { appointments };
       }
 
+      // Both of these already return a publicView, and both notify the clinic
+      // internally — the raw row never leaves store.js. Nothing to redact here.
       case "reschedule_appointment": {
-        const appt = await store.rescheduleAppointment({
+        const appointment = await store.rescheduleAppointment({
           phone: input.phone,
           ref: input.reference,
           newDate: input.new_date,
           newTime: input.new_time,
         });
-        await notify(() => mailer.notifyAppointmentChange("rescheduled", appt));
-        return { success: true, appointment: store.publicView(appt) };
+        return { success: true, appointment };
       }
 
       case "cancel_appointment": {
-        const appt = await store.cancelAppointment({ phone: input.phone, ref: input.reference });
-        await notify(() => mailer.notifyAppointmentChange("cancelled", appt));
-        return { success: true, appointment: store.publicView(appt) };
+        const appointment = await store.cancelAppointment({ phone: input.phone, ref: input.reference });
+        return { success: true, appointment };
       }
 
       default:
