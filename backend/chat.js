@@ -1,319 +1,61 @@
-const fs = require("fs");
-const path = require("path");
-const Anthropic = require("@anthropic-ai/sdk");
-const store = require("./store");
-const mailer = require("./mailer");
-
-const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
-const MASTER_PROMPT = fs.readFileSync(path.join(__dirname, "data", "system-prompt.txt"), "utf8");
-
-let client = null;
-function getClient() {
-  if (!process.env.ANTHROPIC_API_KEY) return null;
-  if (!client) client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  return client;
-}
-
-// The system prompt is split into two blocks on purpose.
+// Entry point for the AI chat assistant.
 //
-// Block 1 is everything that does not change between requests: the master
-// prompt plus the clinic profile and price list. It carries the cache
-// breakpoint, so it is billed in full once and read from cache afterwards.
+// Picks an LLM provider and hands the conversation to its adapter. OpenAI is
+// the default; Anthropic remains supported so the site keeps working if you
+// switch keys. The API key is read from the environment here in the backend
+// and is never sent to the browser — public/index.html only ever talks to
+// POST /api/chat.
 //
-// Block 2 is only today's date and the current clock time. That changes every
-// minute, so it MUST sit after the breakpoint — with the clock inside the
-// cached block, the cached prefix would change every minute and never be hit.
-function buildSystemPrompt() {
-  const clinic = store.getClinicInfo();
-  const services = store.getServices();
-  const now = store.getClinicNow();
-  const currentTime = `${String(Math.floor(now.minutesSinceMidnight / 60)).padStart(2, "0")}:${String(now.minutesSinceMidnight % 60).padStart(2, "0")}`;
+// Selection order:
+//   1. CHAT_PROVIDER=openai|anthropic, if set (explicit wins)
+//   2. whichever of OPENAI_API_KEY / ANTHROPIC_API_KEY is present
+//   3. both present and no CHAT_PROVIDER -> OpenAI
 
-  const dataBlock = [
-    "",
-    "============================================================",
-    "LIVE AUTHORIZED CLINIC DATABASE (this overrides anything above it — use it as the single source of truth)",
-    "============================================================",
-    `Clinic name: ${clinic.name}`,
-    `Dentist: ${clinic.dentist}`,
-    `Opening hours: ${clinic.hoursLabel}`,
-    `Phone: ${clinic.phone}`,
-    `Email: ${clinic.email}`,
-    `Address: ${clinic.address}`,
-    `Currency: ${clinic.currency}`,
-    "",
-    "Services and official prices:",
-    ...services.map((s) => `- ${s.name}: ${s.priceLabel} (id: ${s.id})`),
-    "",
-    "Appointment availability, booking, rescheduling and cancellation are NOT static — always call the matching tool to check or change them. Never state a slot is available without calling check_availability first.",
-  ].join("\n");
+const openai = require("./chat-openai");
+const anthropic = require("./chat-anthropic");
 
-  const clockBlock = [
-    "",
-    "------------------------------------------------------------",
-    "CURRENT DATE AND TIME",
-    "------------------------------------------------------------",
-    `Today's date (clinic-local, Asia/Riyadh): ${now.dateStr}`,
-    `Current clinic-local time: ${currentTime}`,
-    'Resolve "today", "tomorrow" and "next week" against this date, never against anything you remember.',
-  ].join("\n");
+const PROVIDERS = { openai, anthropic };
 
-  return [
-    { type: "text", text: MASTER_PROMPT + dataBlock, cache_control: { type: "ephemeral" } },
-    { type: "text", text: clockBlock },
-  ];
+function selectProvider() {
+  const requested = String(process.env.CHAT_PROVIDER || "").trim().toLowerCase();
+  if (requested) {
+    const provider = PROVIDERS[requested];
+    if (!provider) {
+      console.error(`Unknown CHAT_PROVIDER "${requested}" — expected "openai" or "anthropic".`);
+      return null;
+    }
+    if (!provider.isConfigured()) {
+      console.error(`CHAT_PROVIDER is "${requested}" but its API key is not set — the chat assistant is disabled.`);
+      return null;
+    }
+    return { name: requested, provider };
+  }
+
+  if (openai.isConfigured()) return { name: "openai", provider: openai };
+  if (anthropic.isConfigured()) return { name: "anthropic", provider: anthropic };
+  return null;
 }
 
-const TOOLS = [
-  {
-    name: "get_clinic_info",
-    description: "Get the clinic's name, dentist, opening hours, phone, email and address from the live database.",
-    input_schema: { type: "object", properties: {} },
-  },
-  {
-    name: "get_services",
-    description: "Get the full list of dental services and their official starting prices from the live pricing database.",
-    input_schema: { type: "object", properties: {} },
-  },
-  {
-    name: "check_availability",
-    description:
-      "Check live appointment availability. Pass a date to see all open slots that day. Also pass a time to check one exact slot. Times are 24-hour HH:MM in the clinic's local time.",
-    input_schema: {
-      type: "object",
-      properties: {
-        date: { type: "string", description: "Date in YYYY-MM-DD format." },
-        time: { type: "string", description: "Optional exact time in HH:MM 24-hour format." },
-      },
-      required: ["date"],
-    },
-  },
-  {
-    name: "find_next_available",
-    description:
-      "Search forward from a date (or today) for the next day that has open slots, optionally matching a specific time of day. Use this for 'earliest appointment' or when a requested date is fully booked.",
-    input_schema: {
-      type: "object",
-      properties: {
-        from_date: { type: "string", description: "Date to start searching from, YYYY-MM-DD. Defaults to today." },
-        time: { type: "string", description: "Optional exact HH:MM time to match on each day checked." },
-      },
-    },
-  },
-  {
-    name: "book_appointment",
-    description:
-      "Book a confirmed appointment. Only call this after the patient has confirmed the exact date, time and service, and after check_availability has shown that slot as open.",
-    input_schema: {
-      type: "object",
-      properties: {
-        name: { type: "string" },
-        phone: { type: "string" },
-        service: { type: "string", description: "Service name as listed in get_services." },
-        date: { type: "string", description: "YYYY-MM-DD" },
-        time: { type: "string", description: "HH:MM 24-hour" },
-        message: { type: "string", description: "Optional notes from the patient." },
-      },
-      required: ["name", "phone", "service", "date", "time"],
-    },
-  },
-  {
-    name: "find_appointments_by_phone",
-    description:
-      "Look up a patient's existing, non-cancelled appointments. Requires BOTH their phone number and the booking reference they were given when the appointment was made (a 6-character code like 4KP7MQ) — a phone number alone will return nothing, because phone numbers are not private. Required before rescheduling or cancelling. If the patient does not have their reference, do not try other tools: ask them to call the clinic.",
-    input_schema: {
-      type: "object",
-      properties: {
-        phone: { type: "string" },
-        reference: { type: "string", description: "The 6-character booking reference given to the patient at booking time." },
-      },
-      required: ["phone", "reference"],
-    },
-  },
-  {
-    name: "reschedule_appointment",
-    description: "Move an existing appointment to a new date/time. Requires the appointment id and reference from find_appointments_by_phone.",
-    input_schema: {
-      type: "object",
-      properties: {
-        id: { type: "string" },
-        reference: { type: "string", description: "The booking reference, as returned by find_appointments_by_phone." },
-        new_date: { type: "string", description: "YYYY-MM-DD" },
-        new_time: { type: "string", description: "HH:MM 24-hour" },
-      },
-      required: ["id", "reference", "new_date", "new_time"],
-    },
-  },
-  {
-    name: "cancel_appointment",
-    description: "Cancel an existing appointment. Requires the appointment id and reference from find_appointments_by_phone. Only call after the patient explicitly confirms they want to cancel.",
-    input_schema: {
-      type: "object",
-      properties: {
-        id: { type: "string" },
-        reference: { type: "string", description: "The booking reference, as returned by find_appointments_by_phone." },
-      },
-      required: ["id", "reference"],
-    },
-  },
-];
-
-// A serverless instance is frozen once the response is sent, so email has to
-// be awaited rather than fired and forgotten — but it must never sink a
-// booking that is already saved.
-async function notify(sendFn) {
-  try {
-    await sendFn();
-  } catch (err) {
-    console.error("Email notification failed:", err.message);
-  }
+// Resolved per call rather than at module load so a key added to the
+// environment is picked up without editing code, and so tests can swap it.
+function getActiveProvider() {
+  return selectProvider();
 }
 
-// Async because every store lookup now goes to the database.
-async function runTool(name, input) {
-  try {
-    switch (name) {
-      case "get_clinic_info":
-        return store.getClinicInfo();
-
-      case "get_services":
-        return store.getServices();
-
-      case "check_availability": {
-        if (!store.isValidDate(input.date)) return { error: "Invalid date format, expected YYYY-MM-DD." };
-        const availableSlots = await store.getAvailableSlots(input.date);
-        if (input.time) {
-          return {
-            date: input.date,
-            time: input.time,
-            available: availableSlots.includes(input.time),
-            availableSlots,
-          };
-        }
-        return { date: input.date, availableSlots, fullyBooked: availableSlots.length === 0 };
-      }
-
-      case "find_next_available": {
-        const result = await store.findNextAvailable({ fromDate: input.from_date, time: input.time });
-        return (
-          result || {
-            found: false,
-            searchedDays: 30,
-            note: "Nothing open in the next 30 days from that date. Do not keep calling this tool — tell the patient and offer to have the clinic call them back.",
-          }
-        );
-      }
-
-      case "book_appointment": {
-        const entry = await store.createAppointment({
-          name: input.name,
-          phone: input.phone,
-          service: input.service,
-          date: input.date,
-          time: input.time,
-          message: input.message,
-        });
-        await notify(() => mailer.notifyNewAppointment(entry));
-        // publicView drops the stored phone number and the patient's private
-        // note before anything is handed to the model.
-        return {
-          success: true,
-          appointment: store.publicView(entry),
-          tell_the_patient:
-            `Their booking reference is ${entry.ref}. They must keep it — it is required to change or cancel this appointment.`,
-        };
-      }
-
-      case "find_appointments_by_phone": {
-        const appointments = await store.findAppointmentsByPhone(input.phone, input.reference);
-        if (!appointments.length) {
-          return {
-            appointments: [],
-            note: "No appointment matches that phone number and reference together. Do not guess or retry with a different reference — ask the patient to check the reference they were given, or to call the clinic.",
-          };
-        }
-        return { appointments };
-      }
-
-      case "reschedule_appointment": {
-        const appt = await store.rescheduleAppointment({
-          id: input.id,
-          ref: input.reference,
-          newDate: input.new_date,
-          newTime: input.new_time,
-        });
-        await notify(() => mailer.notifyAppointmentChange("rescheduled", appt));
-        return { success: true, appointment: store.publicView(appt) };
-      }
-
-      case "cancel_appointment": {
-        const appt = await store.cancelAppointment({ id: input.id, ref: input.reference });
-        await notify(() => mailer.notifyAppointmentChange("cancelled", appt));
-        return { success: true, appointment: store.publicView(appt) };
-      }
-
-      default:
-        return { error: `Unknown tool: ${name}` };
-    }
-  } catch (err) {
-    // Storage failures carry file paths and internal detail — keep those out
-    // of the model's context, and therefore out of the patient's chat.
-    if (err.status === 500) {
-      console.error(`Tool "${name}" failed:`, err);
-      return { error: "That information isn't available right now. Ask the patient to call the clinic." };
-    }
-    return { error: err.message };
-  }
+// Reported at startup by server.js; also handy for a health check.
+function status() {
+  const active = selectProvider();
+  return {
+    enabled: !!active,
+    provider: active ? active.name : null,
+    model: active ? active.provider.model : null,
+  };
 }
 
 async function respond(clientMessages) {
-  const anthropic = getClient();
-  if (!anthropic) {
-    throw new Error("CHAT_NOT_CONFIGURED");
-  }
-
-  let messages = clientMessages.map((m) => ({
-    role: m.role === "assistant" ? "assistant" : "user",
-    content: m.content,
-  }));
-
-  const system = buildSystemPrompt();
-
-  for (let turn = 0; turn < 6; turn++) {
-    const resp = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: 1024,
-      // buildSystemPrompt() returns two blocks: a large cached one and a tiny
-      // uncached clock. See the comment on that function.
-      system,
-      tools: TOOLS,
-      messages,
-    });
-
-    if (resp.stop_reason !== "tool_use") {
-      return resp.content
-        .filter((b) => b.type === "text")
-        .map((b) => b.text)
-        .join("\n")
-        .trim();
-    }
-
-    messages.push({ role: "assistant", content: resp.content });
-
-    const toolResults = await Promise.all(
-      resp.content
-        .filter((b) => b.type === "tool_use")
-        .map(async (block) => ({
-          type: "tool_result",
-          tool_use_id: block.id,
-          content: JSON.stringify(await runTool(block.name, block.input || {})),
-        }))
-    );
-
-    messages.push({ role: "user", content: toolResults });
-  }
-
-  return "I'm having trouble completing that right now — please call the clinic directly.";
+  const active = getActiveProvider();
+  if (!active) throw Object.assign(new Error("CHAT_NOT_CONFIGURED"), { code: "CHAT_NOT_CONFIGURED" });
+  return active.provider.respond(clientMessages);
 }
 
-module.exports = { respond };
+module.exports = { respond, status };

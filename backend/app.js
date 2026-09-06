@@ -84,6 +84,20 @@ function sanitizeChatMessages(input) {
   return cleaned;
 }
 
+const CHAT_UNAVAILABLE = "The chat assistant is temporarily unavailable — please call the clinic directly.";
+
+// The adapters tag failures with a code and log the real provider error.
+// What reaches the patient stays generic — an API key or billing problem is
+// the operator's business, not theirs.
+const CHAT_FAILURES = {
+  CHAT_NOT_CONFIGURED: { status: 503, message: "The chat assistant isn't set up yet — please call the clinic directly." },
+  CHAT_AUTH_FAILED: { status: 503, message: CHAT_UNAVAILABLE },
+  CHAT_QUOTA_EXCEEDED: { status: 503, message: CHAT_UNAVAILABLE },
+  CHAT_MODEL_UNAVAILABLE: { status: 503, message: CHAT_UNAVAILABLE },
+  CHAT_UPSTREAM_ERROR: { status: 503, message: CHAT_UNAVAILABLE },
+  CHAT_RATE_LIMITED: { status: 429, message: "The assistant is busy right now — please try again in a moment." },
+};
+
 function buildApiRouter() {
   const api = express.Router();
 
@@ -150,11 +164,9 @@ function buildApiRouter() {
       const reply = await chat.respond(messages);
       res.json({ ok: true, reply });
     } catch (err) {
-      if (err.message === "CHAT_NOT_CONFIGURED") {
-        return res.status(503).json({
-          ok: false,
-          error: "The chat assistant isn't set up yet — please call the clinic directly.",
-        });
+      const failure = CHAT_FAILURES[err.code];
+      if (failure) {
+        return res.status(failure.status).json({ ok: false, error: failure.message });
       }
       console.error("Chat error:", err);
       res.status(500).json({ ok: false, error: "Something went wrong. Please try again or call the clinic." });
