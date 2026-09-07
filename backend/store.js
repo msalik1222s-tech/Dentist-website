@@ -207,8 +207,9 @@ async function createAppointment({ name, phone, service, date, time, message, so
   // The unique index on `ref` is the real guard. A collision is astronomically
   // unlikely (32^6), but retrying is cheaper than pre-scanning every booking.
   for (let attempt = 0; attempt < REF_ATTEMPTS; attempt++) {
+    let created;
     try {
-      return await db.insertAppointment({ ...base, ref: generateRef() });
+      created = await db.insertAppointment({ ...base, ref: generateRef() });
     } catch (err) {
       if (err.message === "REF_TAKEN") continue;
       // The availability check above can lose a race against a booking on
@@ -216,6 +217,11 @@ async function createAppointment({ name, phone, service, date, time, message, so
       if (err.message === "SLOT_TAKEN") throw fail("That slot is already booked.", 409);
       throw err;
     }
+    // Deliberately outside the try above: that block interprets storage errors
+    // as REF_TAKEN/SLOT_TAKEN, and a mail failure must never be mistaken for a
+    // reference collision and retried into a second booking.
+    await notifyClinic("booked", created);
+    return publicView(created);
   }
   throw fail("Could not allocate a unique appointment reference.", 500);
 }
@@ -263,7 +269,8 @@ async function requireAppointment(phone, ref) {
 // undo a change that is already committed to the database.
 async function notifyClinic(action, rawEntry) {
   try {
-    await mailer.notifyAppointmentChange(action, rawEntry);
+    if (action === "booked") await mailer.notifyNewAppointment(rawEntry);
+    else await mailer.notifyAppointmentChange(action, rawEntry);
   } catch (err) {
     console.error(`Email notification failed for a ${action} appointment:`, err.message);
   }

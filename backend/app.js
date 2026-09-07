@@ -7,7 +7,6 @@ const express = require("express");
 
 const chat = require("./chat");
 const store = require("./store");
-const mailer = require("./mailer");
 
 const ADMIN_KEY = process.env.ADMIN_KEY || "";
 
@@ -130,13 +129,9 @@ function buildApiRouter() {
       return res.status(err.status).json({ ok: false, error: err.message });
     }
 
-    try {
-      await mailer.notifyNewAppointment(entry);
-    } catch (err) {
-      // The booking is already saved — a failed notification must not fail it.
-      console.error("Email notification failed:", err.message);
-    }
-
+    // The clinic notification is sent inside store.createAppointment, which
+    // also swallows mail failures so they cannot fail an already-saved
+    // booking. `entry` here is a publicView — it still carries the reference.
     res.status(201).json({
       ok: true,
       reference: entry.ref,

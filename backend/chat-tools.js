@@ -16,7 +16,6 @@
 const fs = require("fs");
 const path = require("path");
 const store = require("./store");
-const mailer = require("./mailer");
 
 const MASTER_PROMPT = fs.readFileSync(path.join(__dirname, "data", "system-prompt.txt"), "utf8");
 
@@ -173,17 +172,6 @@ const TOOLS = [
   },
 ];
 
-// A serverless instance is frozen once the response is sent, so email has to
-// be awaited rather than fired and forgotten — but it must never sink a
-// booking that is already saved.
-async function notify(sendFn) {
-  try {
-    await sendFn();
-  } catch (err) {
-    console.error("Email notification failed:", err.message);
-  }
-}
-
 // Defence in depth at the one boundary where clinic data reaches the model.
 //
 // store.js is the real guarantee: appointment operations return publicView().
@@ -255,8 +243,10 @@ async function executeTool(name, input) {
         );
       }
 
+      // createAppointment returns a publicView and notifies the clinic itself;
+      // the stored phone number and the patient's note never leave store.js.
       case "book_appointment": {
-        const entry = await store.createAppointment({
+        const appointment = await store.createAppointment({
           name: input.name,
           phone: input.phone,
           service: input.service,
@@ -264,14 +254,11 @@ async function executeTool(name, input) {
           time: input.time,
           message: input.message,
         });
-        await notify(() => mailer.notifyNewAppointment(entry));
-        // publicView drops the stored phone number and the patient's private
-        // note before anything is handed to the model.
         return {
           success: true,
-          appointment: store.publicView(entry),
+          appointment,
           tell_the_patient:
-            `Their booking reference is ${entry.ref}. They must keep it — it is required to change or cancel this appointment.`,
+            `Their booking reference is ${appointment.ref}. They must keep it — it is required to change or cancel this appointment.`,
         };
       }
 
