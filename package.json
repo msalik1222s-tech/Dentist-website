@@ -7,7 +7,8 @@
     "start": "node backend/server.js",
     "dev": "node backend/server.js",
     "db:check": "node scripts/db-check.js",
-    "test:admin": "node scripts/test-admin-auth.js"
+    "test:admin": "node scripts/test-admin-auth.js",
+    "test:admin-write": "node scripts/test-admin-write.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",

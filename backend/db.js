@@ -229,6 +229,23 @@ function createPostgresDriver(connectionString) {
       }
     },
 
+    // Pending -> confirmed only. The WHERE clause is the whole guard: a
+    // cancelled row can never be revived by a confirm, and a second confirm
+    // of the same appointment matches nothing and returns null, which the
+    // caller reads as "already done" rather than as an error.
+    //
+    // appointments_slot_unique covers every row that is not cancelled, so
+    // pending already holds the slot: this transition cannot collide with it.
+    async confirmAppointmentById(id, updatedAt) {
+      const { rows } = await query(
+        `UPDATE appointments SET status = 'confirmed', updated_at = $2
+         WHERE id = $1 AND status = 'pending'
+         RETURNING ${COLUMNS}`,
+        [id, updatedAt]
+      );
+      return toEntry(rows[0]);
+    },
+
     async cancelAppointmentById(id, updatedAt) {
       const { rows } = await query(
         `UPDATE appointments SET status = 'cancelled', updated_at = $2
@@ -368,6 +385,16 @@ function createFileDriver() {
       if (taken) throw new Error("SLOT_TAKEN");
       appt.date = date;
       appt.time = time;
+      appt.updatedAt = updatedAt;
+      save(list);
+      return appt;
+    },
+
+    async confirmAppointmentById(id, updatedAt) {
+      const list = load();
+      const appt = list.find((a) => a.id === id && a.status === "pending");
+      if (!appt) return null;
+      appt.status = "confirmed";
       appt.updatedAt = updatedAt;
       save(list);
       return appt;

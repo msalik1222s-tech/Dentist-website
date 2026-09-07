@@ -83,6 +83,11 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+// What the clinic may do to a booking. Anything else is a 400 rather than a
+// guess: an action this endpoint does not understand must never be read as a
+// near-miss for one it does.
+const ADMIN_ACTIONS = new Set(["confirm", "cancel", "reschedule"]);
+
 function sanitizeChatMessages(input) {
   if (!Array.isArray(input)) return null;
   const cleaned = input
@@ -158,6 +163,53 @@ function buildApiRouter() {
       res.json({ ok: true, appointments: await store.loadAppointments() });
     } catch (err) {
       next(err);
+    }
+  });
+
+  // The clinic's side of an appointment: confirm it, cancel it, or move it.
+  // One endpoint rather than three, because all three are the same operation
+  // as far as authentication, lookup and error handling are concerned — and
+  // one route is one thing to keep guarded rather than three.
+  //
+  // The reference in the path is the only identifier accepted. Internal row
+  // ids are neither read from the request nor returned in the response.
+  api.patch("/appointments/:ref", limiter("admin"), requireAdmin, async (req, res, next) => {
+    const body = req.body || {};
+    const action = String(body.action || "").trim().toLowerCase();
+    if (!ADMIN_ACTIONS.has(action)) {
+      return res
+        .status(400)
+        .json({ ok: false, error: "Unknown action. Use confirm, cancel or reschedule." });
+    }
+
+    try {
+      let result;
+      if (action === "confirm") {
+        result = await store.adminConfirmAppointment(req.params.ref);
+      } else if (action === "cancel") {
+        result = await store.adminCancelAppointment(req.params.ref);
+      } else {
+        result = await store.adminRescheduleAppointment({
+          ref: req.params.ref,
+          newDate: String(body.date || "").trim(),
+          newTime: String(body.time || "").trim(),
+        });
+      }
+      res.json({
+        ok: true,
+        action,
+        // False when the appointment was already in the requested state, so
+        // a second click reads as "nothing to do" instead of a fresh change.
+        changed: result.changed,
+        appointment: result.appointment,
+      });
+    } catch (err) {
+      // Same split as the booking route: store.js tags what staff may safely
+      // read (404 unknown reference, 409 taken slot, 400 bad date) with a
+      // status. Anything else is a storage failure and stays generic.
+      if (err.code) return next(err);
+      if (!err.status || err.status >= 500) return next(err);
+      res.status(err.status).json({ ok: false, error: err.message });
     }
   });
 

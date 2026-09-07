@@ -254,6 +254,20 @@ async function requireAppointment(phone, ref) {
   return appt;
 }
 
+// Resolves an appointment for a CLINIC-side change. Staff reach this having
+// already authenticated with ADMIN_KEY, so the reference alone identifies the
+// booking: a receptionist working from the appointment list has no reason to
+// hold the patient's phone number, and requiring it would only push staff
+// towards looking phone numbers up for the sake of the form.
+async function requireAppointmentByRef(ref) {
+  const r = normalizeRef(ref);
+  const notFound = () => fail("Appointment not found. Please check the booking reference.", 404);
+  if (!r) throw notFound();
+  const appt = await db.getAppointmentByRef(r);
+  if (!appt) throw notFound();
+  return appt;
+}
+
 // The clinic's notification email legitimately needs the full row — the staff
 // have to phone the patient back, and the patient's note is the point of the
 // message. That is the ONLY legitimate consumer of unredacted appointment data
@@ -276,8 +290,13 @@ async function notifyClinic(action, rawEntry) {
   }
 }
 
-async function rescheduleAppointment({ phone, ref, newDate, newTime }) {
-  const appt = await requireAppointment(phone, ref);
+// The reschedule rules themselves, applied to an appointment the caller has
+// already proved it may touch. Patients get here with phone + reference and
+// staff with ADMIN_KEY + reference, but what makes a new slot legal — a real
+// date, clinic hours, not in the past, not already taken — cannot differ
+// between the two, so it lives in one place. Returns the raw row; the
+// exported wrappers below are what redact it.
+async function applyReschedule(appt, newDate, newTime) {
   if (appt.status === "cancelled") throw fail("This appointment was already cancelled.", 409);
   if (!isValidDate(newDate)) throw fail("Invalid date format. Use YYYY-MM-DD.", 400);
   if (!isValidTime(newTime)) throw fail("Invalid or out-of-hours time slot.", 400);
@@ -296,6 +315,12 @@ async function rescheduleAppointment({ phone, ref, newDate, newTime }) {
     throw err;
   }
   if (!updated) throw fail("This appointment was already cancelled.", 409);
+  return updated;
+}
+
+async function rescheduleAppointment({ phone, ref, newDate, newTime }) {
+  const appt = await requireAppointment(phone, ref);
+  const updated = await applyReschedule(appt, newDate, newTime);
   await notifyClinic("rescheduled", updated);
   return publicView(updated);
 }
@@ -306,6 +331,69 @@ async function cancelAppointment({ phone, ref }) {
   if (!cancelled) throw fail("This appointment was already cancelled.", 409);
   await notifyClinic("cancelled", cancelled);
   return publicView(cancelled);
+}
+
+// ---------- clinic-side changes ----------
+//
+// The same storage primitives and the same booking rules as the patient paths
+// above. Two things differ, both deliberately:
+//
+//   * The credential is ADMIN_KEY (checked at the route) plus the reference,
+//     not phone + reference.
+//   * Repeating an action that has already happened answers with the current
+//     state instead of an error. Staff work down a list and click twice; a
+//     409 there would read as "something is wrong" when nothing is.
+//
+// `changed` says whether this call actually moved anything, so the route can
+// word the response honestly either way.
+//
+// None of these send the clinic a notification email: the clinic is the one
+// making the change, and mailer.notifyAppointmentChange attributes the action
+// to the AI assistant, which would be a lie here.
+
+const unchanged = (appt) => ({ appointment: publicView(appt), changed: false });
+
+// Re-read after a losing race so the response still describes the row as it
+// actually stands, rather than the stale copy this call started from.
+async function currentState(ref, fallback) {
+  const current = await db.getAppointmentByRef(normalizeRef(ref));
+  return unchanged(current || fallback);
+}
+
+async function adminConfirmAppointment(ref) {
+  const appt = await requireAppointmentByRef(ref);
+  if (appt.status === "cancelled") {
+    throw fail(
+      "This appointment was cancelled and cannot be confirmed. Book a new appointment instead.",
+      409
+    );
+  }
+  if (appt.status === "confirmed") return unchanged(appt);
+
+  const confirmed = await db.confirmAppointmentById(appt.id, new Date().toISOString());
+  if (!confirmed) return currentState(ref, appt);
+  return { appointment: publicView(confirmed), changed: true };
+}
+
+async function adminCancelAppointment(ref) {
+  const appt = await requireAppointmentByRef(ref);
+  if (appt.status === "cancelled") return unchanged(appt);
+
+  // Cancelling is what frees the slot: every availability query ignores
+  // cancelled rows, and appointments_slot_unique stops covering them.
+  const cancelled = await db.cancelAppointmentById(appt.id, new Date().toISOString());
+  if (!cancelled) return currentState(ref, appt);
+  return { appointment: publicView(cancelled), changed: true };
+}
+
+// The reference and the status both survive: the row moves to a new slot,
+// which frees the old one, and a booking the patient has not confirmed yet
+// does not become confirmed just because the clinic moved it.
+async function adminRescheduleAppointment({ ref, newDate, newTime }) {
+  const appt = await requireAppointmentByRef(ref);
+  const sameSlot = appt.date === newDate && appt.time === newTime;
+  const updated = await applyReschedule(appt, newDate, newTime);
+  return { appointment: publicView(updated), changed: !sameSlot };
 }
 
 // Admin-only view: the full rows, phone numbers included. Guarded by ADMIN_KEY
@@ -339,6 +427,9 @@ module.exports = {
   findAppointmentsByPhone,
   rescheduleAppointment,
   cancelAppointment,
+  adminConfirmAppointment,
+  adminCancelAppointment,
+  adminRescheduleAppointment,
   loadAppointments,
   isRateLimited,
   isValidDate,
