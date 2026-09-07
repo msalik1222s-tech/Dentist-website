@@ -4,93 +4,525 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="noindex, nofollow" />
-<title>Appointment Requests — Admin</title>
+<title>Appointments — Admin</title>
 <style>
-  body { font-family: system-ui, sans-serif; max-width: 960px; margin: 2rem auto; padding: 0 1rem; color: #1c2b2a; }
-  h1 { font-size: 1.4rem; }
-  #keyBar { display: flex; gap: .5rem; margin-bottom: 1.5rem; }
-  #keyBar input { flex: 1; padding: .5rem .7rem; border: 1px solid #ccc; border-radius: 6px; }
-  #keyBar button { padding: .5rem 1rem; border: none; border-radius: 6px; background: #0f7a6e; color: #fff; cursor: pointer; }
+  :root {
+    --ink: #1c2b2a;
+    --muted: #5d6f6d;
+    --line: #e4e8e7;
+    --brand: #0f7a6e;
+    --bg-soft: #f5f7f6;
+  }
+  * { box-sizing: border-box; }
+  /* An id selector outranks the user agent's [hidden] { display: none }, so
+     #toolbar's display rule below would leave the toolbar on screen before
+     anything is loaded. Restate it with enough weight to win. */
+  [hidden] { display: none !important; }
+  /* Stated outright rather than inherited: with no background of its own the
+     page borrows the browser's, which in dark mode is near-black — and every
+     colour here is chosen for a white sheet, so the text disappeared. */
+  html { color-scheme: light; }
+  body {
+    background: #fff;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    max-width: 1100px; margin: 2rem auto; padding: 0 1rem;
+    color: var(--ink); line-height: 1.45;
+  }
+  h1 { font-size: 1.4rem; margin: 0 0 .25rem; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 0 0 1.4rem; }
+
+  #keyBar { display: flex; gap: .5rem; margin-bottom: 1.2rem; flex-wrap: wrap; }
+  #keyBar input { flex: 1 1 12rem; padding: .5rem .7rem; border: 1px solid #ccc; border-radius: 6px; font: inherit; }
+
+  button { font: inherit; cursor: pointer; border-radius: 6px; border: 1px solid transparent; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-primary { padding: .5rem 1rem; background: var(--brand); color: #fff; }
+  .btn-plain { padding: .5rem 1rem; background: #fff; border-color: #ccc; color: var(--ink); }
+
+  #toolbar { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; margin-bottom: 1rem; }
+  .filter { padding: .38rem .8rem; background: #fff; border: 1px solid var(--line); color: var(--muted); }
+  .filter[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: #fff; }
+  #toolbar .spacer { flex: 1; }
+
+  #status { margin: 0 0 1rem; font-size: .92rem; min-height: 1.3em; }
+  #status.error { color: #a3342b; }
+  #status.success { color: #14705f; }
+  #status.info { color: var(--muted); }
+
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   table { width: 100%; border-collapse: collapse; font-size: .9rem; }
-  th, td { text-align: left; padding: .6rem .5rem; border-bottom: 1px solid #e4e4e4; vertical-align: top; }
-  th { background: #f5f7f6; }
-  #status { color: #a3342b; margin-bottom: 1rem; }
-  code { font-size: .85rem; letter-spacing: .04em; background: #f0f4f3; padding: .1rem .35rem; border-radius: 4px; }
+  th, td { text-align: left; padding: .6rem .5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--bg-soft); white-space: nowrap; font-size: .82rem; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
+  code { font-size: .85rem; letter-spacing: .06em; background: #f0f4f3; padding: .12rem .4rem; border-radius: 4px; }
+  /* Date and time are read as single tokens; letting them wrap turns
+     2026-09-10 into two lines and makes the column hard to scan. */
+  td:nth-child(5), td:nth-child(6) { white-space: nowrap; }
+  .meta { display: block; color: var(--muted); font-size: .78rem; margin-top: .2rem; }
+  .note { display: block; color: var(--muted); font-size: .8rem; margin-top: .25rem; max-width: 22rem; }
+
+  .pill { display: inline-block; padding: .15rem .55rem; border-radius: 999px; font-size: .78rem; text-transform: capitalize; }
+  .pill.pending { background: #fdf0d8; color: #8a5b12; }
+  .pill.confirmed { background: #d9efe6; color: #14705f; }
+  .pill.cancelled { background: #f0e2e0; color: #a3342b; }
+
+  .actions { display: flex; gap: .35rem; flex-wrap: wrap; }
+  .actions button { padding: .32rem .7rem; font-size: .82rem; background: #fff; border-color: #ccc; }
+  .actions button.confirm { border-color: var(--brand); color: var(--brand); }
+  .actions button.cancel { border-color: #c9a5a0; color: #a3342b; }
+  .dash { color: var(--muted); }
+
+  dialog { border: none; border-radius: 10px; padding: 1.25rem; max-width: 22rem; width: calc(100% - 2rem); box-shadow: 0 10px 40px rgba(0,0,0,.2); color: var(--ink); }
+  dialog::backdrop { background: rgba(0,0,0,.35); }
+  dialog h2 { font-size: 1.05rem; margin: 0 0 .2rem; }
+  dialog label { display: block; margin-top: .8rem; font-size: .85rem; color: var(--muted); }
+  dialog input, dialog select { width: 100%; padding: .45rem .55rem; border: 1px solid #ccc; border-radius: 6px; font: inherit; margin-top: .2rem; }
+  #dialogError { color: #a3342b; font-size: .85rem; min-height: 1.2em; margin: .7rem 0 0; }
+  .dialog-actions { display: flex; gap: .5rem; justify-content: flex-end; margin-top: 1rem; }
+
+  @media (max-width: 640px) {
+    body { margin: 1.2rem auto; }
+    th, td { padding: .5rem .4rem; }
+    table { font-size: .85rem; }
+  }
 </style>
 </head>
 <body>
-  <h1>Appointment requests</h1>
+  <h1>Appointments</h1>
+  <p class="sub">Confirm, reschedule or cancel a booking. Changes take effect immediately.</p>
+
   <div id="keyBar">
-    <input id="key" type="password" placeholder="Admin key" />
-    <button id="load">Load</button>
+    <input id="key" type="password" placeholder="Admin key" autocomplete="current-password" />
+    <button id="load" class="btn-primary">Load</button>
   </div>
-  <p id="status"></p>
-  <table id="results" hidden>
-    <thead>
-      <tr><th>Submitted</th><th>Ref</th><th>Name</th><th>Phone</th><th>Date</th><th>Time</th><th>Service</th><th>Status</th><th>Message</th></tr>
-    </thead>
-    <tbody id="rows"></tbody>
-  </table>
+
+  <div id="toolbar" hidden>
+    <button class="filter" data-filter="all" aria-pressed="true">All</button>
+    <button class="filter" data-filter="pending" aria-pressed="false">Pending</button>
+    <button class="filter" data-filter="confirmed" aria-pressed="false">Confirmed</button>
+    <button class="filter" data-filter="cancelled" aria-pressed="false">Cancelled</button>
+    <span class="spacer"></span>
+    <button id="refresh" class="btn-plain">Refresh</button>
+  </div>
+
+  <p id="status" role="status" aria-live="polite"></p>
+
+  <div class="table-wrap">
+    <table id="results" hidden>
+      <thead>
+        <tr>
+          <th>Reference</th><th>Patient</th><th>Phone</th><th>Service</th>
+          <th>Date</th><th>Time</th><th>Status</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+
+  <dialog id="rescheduleDialog">
+    <h2>Reschedule appointment</h2>
+    <p class="sub" id="dialogFor"></p>
+    <label for="newDate">New date</label>
+    <input id="newDate" type="date" />
+    <label for="newTime">New time</label>
+    <select id="newTime"><option value="">Pick a date first</option></select>
+    <p id="dialogError"></p>
+    <div class="dialog-actions">
+      <button id="dialogCancel" class="btn-plain">Cancel</button>
+      <button id="dialogSave" class="btn-primary">Save</button>
+    </div>
+  </dialog>
 
 <script>
 // Everything lives in an IIFE. At global scope `var status = <element>` does
 // not create a variable — it assigns to window.status, which the browser
-// coerces to a string, so every `status.textContent = ...` below silently did
-// nothing and errors never appeared on screen.
+// coerces to a string, so every `status.textContent = ...` would silently do
+// nothing and errors would never appear on screen.
 (function () {
   "use strict";
 
   var keyInput = document.getElementById("key");
   var statusEl = document.getElementById("status");
+  var toolbar = document.getElementById("toolbar");
   var table = document.getElementById("results");
   var rows = document.getElementById("rows");
+  var dialog = document.getElementById("rescheduleDialog");
+  var dialogFor = document.getElementById("dialogFor");
+  var dialogError = document.getElementById("dialogError");
+  var newDate = document.getElementById("newDate");
+  var newTime = document.getElementById("newTime");
+
+  // appointments: the last list from the server. filter: which status the
+  // table is showing. busy: a request is in flight, so every control that
+  // could start a second one is disabled.
+  var state = { appointments: [], filter: "all", busy: false, loaded: false };
 
   var savedKey = sessionStorage.getItem("adminKey");
   if (savedKey) keyInput.value = savedKey;
 
+  // Kept from the original page. Nothing below builds markup out of patient
+  // data any more — rows are assembled with createElement and textContent, so
+  // a name like `<img onerror=...>` is text and can never become an element —
+  // but this stays as the escaping helper for anything that ever does.
   function escapeHtml(s) {
     return String(s || "").replace(/[&<>"']/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
     });
   }
 
-  function load() {
-    var key = keyInput.value.trim();
-    if (!key) { statusEl.textContent = "Enter the admin key."; return; }
-    sessionStorage.setItem("adminKey", key);
-    statusEl.textContent = "Loading...";
-    table.hidden = true;
-
-    fetch("/api/appointments", { headers: { "x-admin-key": key } })
-      .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
-      .then(function (res) {
-        if (!res.ok) {
-          statusEl.textContent = (res.data && res.data.error) || "Failed to load.";
-          return;
-        }
-        statusEl.textContent = res.data.appointments.length + " request(s).";
-        rows.innerHTML = res.data.appointments.map(function (a) {
-          return "<tr>" +
-            "<td>" + escapeHtml(new Date(a.createdAt).toLocaleString()) + "</td>" +
-            "<td><code>" + escapeHtml(a.ref || "-") + "</code></td>" +
-            "<td>" + escapeHtml(a.name) + "</td>" +
-            "<td>" + escapeHtml(a.phone) + "</td>" +
-            "<td>" + escapeHtml(a.date) + "</td>" +
-            "<td>" + escapeHtml(a.time || "-") + "</td>" +
-            "<td>" + escapeHtml(a.service) + "</td>" +
-            "<td>" + escapeHtml(a.status || "pending") + "</td>" +
-            "<td>" + escapeHtml(a.message) + "</td>" +
-            "</tr>";
-        }).join("");
-        table.hidden = false;
-      })
-      .catch(function () { statusEl.textContent = "Network error."; });
+  function say(message, kind) {
+    statusEl.textContent = message;
+    statusEl.className = kind || "info";
   }
 
-  document.getElementById("load").addEventListener("click", load);
-  keyInput.addEventListener("keydown", function (e) {
-    if (e.key === "Enter") load();
-  });
+  // The key is read here and passed straight to a header. It is never put in
+  // a URL (query strings reach access logs, browser history and Referer
+  // headers), never written to the console, and never rendered.
+  function adminKey() {
+    return keyInput.value.trim();
+  }
+
+  function api(path, options) {
+    var opts = options || {};
+    opts.headers = { "x-admin-key": adminKey(), "Content-Type": "application/json" };
+    return fetch(path, opts).then(function (r) {
+      return r.json().then(
+        function (data) { return { ok: r.ok, status: r.status, data: data }; },
+        function () { return { ok: false, status: r.status, data: {} }; }
+      );
+    });
+  }
+
+  // One place decides what a failed response means, so every action reports
+  // the same way. The server's own message is shown when it has one: it is
+  // written for staff ("That slot is already booked.") and says more than a
+  // status code would.
+  function describeFailure(res) {
+    if (res.status === 401) {
+      // The stored key is wrong or has been rotated; drop it so a reload does
+      // not keep retrying with a credential the server rejects.
+      sessionStorage.removeItem("adminKey");
+      return "Admin key rejected. Check the key and load again.";
+    }
+    if (res.status === 429) return "Too many admin requests. Wait a minute and try again.";
+    return (res.data && res.data.error) || "Request failed. Please try again.";
+  }
+
+  function setBusy(busy) {
+    state.busy = busy;
+    var controls = document.querySelectorAll("#rows button, #refresh, #load");
+    for (var i = 0; i < controls.length; i++) controls[i].disabled = busy;
+  }
+
+  function statusOf(a) {
+    return a.status || "pending";
+  }
+
+  function visible() {
+    if (state.filter === "all") return state.appointments;
+    return state.appointments.filter(function (a) { return statusOf(a) === state.filter; });
+  }
+
+  function countOf(name) {
+    if (name === "all") return state.appointments.length;
+    return state.appointments.filter(function (a) { return statusOf(a) === name; }).length;
+  }
+
+  var FILTER_LABELS = { all: "All", pending: "Pending", confirmed: "Confirmed", cancelled: "Cancelled" };
+
+  function renderFilters() {
+    var buttons = document.querySelectorAll(".filter");
+    for (var i = 0; i < buttons.length; i++) {
+      var name = buttons[i].getAttribute("data-filter");
+      buttons[i].textContent = FILTER_LABELS[name] + " (" + countOf(name) + ")";
+      buttons[i].setAttribute("aria-pressed", name === state.filter ? "true" : "false");
+    }
+  }
+
+  function cell(row, text, className) {
+    var td = document.createElement("td");
+    if (text !== undefined && text !== null && text !== "") td.textContent = text;
+    else { td.textContent = "—"; td.className = "dash"; }
+    if (className) td.className = className;
+    row.appendChild(td);
+    return td;
+  }
+
+  function actionButton(label, className, ref, handler) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.textContent = label;
+    b.className = className;
+    b.setAttribute("data-ref", ref);
+    b.setAttribute("data-action", className);
+    b.addEventListener("click", handler);
+    return b;
+  }
+
+  function renderRow(a) {
+    var tr = document.createElement("tr");
+    var status = statusOf(a);
+
+    var refCell = document.createElement("td");
+    var code = document.createElement("code");
+    code.textContent = a.ref || "—";
+    refCell.appendChild(code);
+    if (a.createdAt) {
+      var when = document.createElement("span");
+      when.className = "meta";
+      when.textContent = new Date(a.createdAt).toLocaleString();
+      refCell.appendChild(when);
+    }
+    tr.appendChild(refCell);
+
+    var nameCell = document.createElement("td");
+    nameCell.textContent = a.name || "—";
+    if (a.message) {
+      var note = document.createElement("span");
+      note.className = "note";
+      note.textContent = a.message;
+      nameCell.appendChild(note);
+    }
+    tr.appendChild(nameCell);
+
+    cell(tr, a.phone);
+    cell(tr, a.service);
+    cell(tr, a.date);
+    cell(tr, a.time);
+
+    var statusCell = document.createElement("td");
+    var pill = document.createElement("span");
+    pill.className = "pill " + status;
+    pill.textContent = status;
+    statusCell.appendChild(pill);
+    tr.appendChild(statusCell);
+
+    var actions = document.createElement("td");
+    var box = document.createElement("div");
+    box.className = "actions";
+    // A cancelled appointment is final here: it cannot be confirmed or moved,
+    // and the server refuses both, so the buttons are not offered either.
+    if (status === "pending") box.appendChild(actionButton("Confirm", "confirm", a.ref, onConfirm));
+    if (status === "pending" || status === "confirmed") {
+      box.appendChild(actionButton("Reschedule", "reschedule", a.ref, onReschedule));
+      box.appendChild(actionButton("Cancel", "cancel", a.ref, onCancel));
+    }
+    if (!box.childNodes.length) {
+      var none = document.createElement("span");
+      none.className = "dash";
+      none.textContent = "—";
+      box.appendChild(none);
+    }
+    actions.appendChild(box);
+    tr.appendChild(actions);
+
+    return tr;
+  }
+
+  function render() {
+    renderFilters();
+    rows.textContent = "";
+    var list = visible();
+    if (!list.length) {
+      var tr = document.createElement("tr");
+      var td = document.createElement("td");
+      td.setAttribute("colspan", "8");
+      td.className = "dash";
+      td.textContent = state.appointments.length
+        ? "No " + state.filter + " appointments."
+        : "No appointments yet.";
+      tr.appendChild(td);
+      rows.appendChild(tr);
+    } else {
+      for (var i = 0; i < list.length; i++) rows.appendChild(renderRow(list[i]));
+    }
+    toolbar.hidden = false;
+    table.hidden = false;
+  }
+
+  function load(quiet) {
+    var key = adminKey();
+    if (!key) { say("Enter the admin key.", "error"); return Promise.resolve(); }
+    sessionStorage.setItem("adminKey", key);
+    if (!quiet) say("Loading…", "info");
+    setBusy(true);
+
+    return api("/api/appointments")
+      .then(function (res) {
+        if (!res.ok) {
+          say(describeFailure(res), "error");
+          if (res.status === 401) { table.hidden = true; toolbar.hidden = true; keyInput.focus(); }
+          return;
+        }
+        state.appointments = res.data.appointments || [];
+        state.loaded = true;
+        render();
+        say(state.appointments.length + " appointment(s) loaded.", "info");
+      })
+      .catch(function () { say("Network error. Check your connection and try again.", "error"); })
+      .then(function () { setBusy(false); });
+  }
+
+  function find(ref) {
+    for (var i = 0; i < state.appointments.length; i++) {
+      if (state.appointments[i].ref === ref) return state.appointments[i];
+    }
+    return null;
+  }
+
+  // The write endpoint answers with a redacted view — no phone number, no
+  // patient note — so the row is updated field by field rather than replaced,
+  // and the columns the admin list alone can fill stay filled. This is also
+  // why an action does not re-fetch the whole list: the response is already
+  // the authoritative new state of that row, and the admin rate limit is
+  // shared with every other admin request.
+  function merge(updated) {
+    var current = find(updated.ref);
+    if (!current) return;
+    current.status = updated.status;
+    current.date = updated.date;
+    current.time = updated.time;
+    current.service = updated.service;
+    current.name = updated.name;
+  }
+
+  function act(ref, body, successMessage) {
+    setBusy(true);
+    say("Working…", "info");
+    return api("/api/appointments/" + encodeURIComponent(ref), {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    })
+      .then(function (res) {
+        if (!res.ok) { say(describeFailure(res), "error"); return res; }
+        merge(res.data.appointment);
+        render();
+        say(res.data.changed ? successMessage : "No change — it was already in that state.", "success");
+        return res;
+      })
+      .catch(function () {
+        say("Network error. The appointment may not have changed — reload to check.", "error");
+        return { ok: false, status: 0, data: {} };
+      })
+      .then(function (res) { setBusy(false); return res; });
+  }
+
+  function describe(a) {
+    return a ? a.ref + " — " + a.name + ", " + a.date + " " + (a.time || "") : "";
+  }
+
+  function onConfirm(e) {
+    var ref = e.currentTarget.getAttribute("data-ref");
+    var a = find(ref);
+    if (!confirm("Confirm this appointment?\n\n" + describe(a))) return;
+    act(ref, { action: "confirm" }, "Appointment " + ref + " confirmed.");
+  }
+
+  function onCancel(e) {
+    var ref = e.currentTarget.getAttribute("data-ref");
+    var a = find(ref);
+    if (!confirm("Cancel this appointment? The slot will be freed.\n\n" + describe(a))) return;
+    act(ref, { action: "cancel" }, "Appointment " + ref + " cancelled.");
+  }
+
+  // ---- reschedule ----
+
+  var rescheduleRef = null;
+
+  function loadSlots(date) {
+    newTime.textContent = "";
+    var placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "Loading times…";
+    newTime.appendChild(placeholder);
+    if (!date) { placeholder.textContent = "Pick a date first"; return Promise.resolve(); }
+
+    // Public endpoint, and deliberately so: it carries no patient data and
+    // needs no key. Offering only open slots is what stops most 409s before
+    // they happen — the server still has the final say.
+    return fetch("/api/availability?date=" + encodeURIComponent(date))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        newTime.textContent = "";
+        var slots = (data && data.slots) || [];
+        if (!slots.length) {
+          var empty = document.createElement("option");
+          empty.value = "";
+          empty.textContent = "No open times that day";
+          newTime.appendChild(empty);
+          return;
+        }
+        for (var i = 0; i < slots.length; i++) {
+          var opt = document.createElement("option");
+          opt.value = slots[i];
+          opt.textContent = slots[i];
+          newTime.appendChild(opt);
+        }
+      })
+      .catch(function () {
+        newTime.textContent = "";
+        var failed = document.createElement("option");
+        failed.value = "";
+        failed.textContent = "Could not load times";
+        newTime.appendChild(failed);
+      });
+  }
+
+  function onReschedule(e) {
+    var ref = e.currentTarget.getAttribute("data-ref");
+    var a = find(ref);
+    rescheduleRef = ref;
+    dialogError.textContent = "";
+    dialogFor.textContent = describe(a);
+    newDate.value = (a && a.date) || "";
+    if (dialog.showModal) dialog.showModal();
+    else dialog.setAttribute("open", "open");
+    loadSlots(newDate.value);
+  }
+
+  function closeDialog() {
+    rescheduleRef = null;
+    if (dialog.close) dialog.close();
+    else dialog.removeAttribute("open");
+  }
+
+  function saveReschedule() {
+    if (!rescheduleRef) return;
+    var date = newDate.value;
+    var time = newTime.value;
+    if (!date || !time) { dialogError.textContent = "Pick both a date and a time."; return; }
+
+    var ref = rescheduleRef;
+    act(ref, { action: "reschedule", date: date, time: time }, "Appointment " + ref + " moved to " + date + " " + time + ".")
+      .then(function (res) {
+        if (res && res.ok) { closeDialog(); return; }
+        // 409 is the one every receptionist will meet: someone took the slot
+        // between the list loading and this click. Say so where they are
+        // looking — inside the dialog — and leave it open to pick again.
+        dialogError.textContent = res && res.status === 409
+          ? (res.data && res.data.error) || "That slot is already booked."
+          : (res && res.data && res.data.error) || "Could not reschedule.";
+        if (res && res.status === 409) loadSlots(newDate.value);
+      });
+  }
+
+  // ---- wiring ----
+
+  document.getElementById("load").addEventListener("click", function () { load(); });
+  document.getElementById("refresh").addEventListener("click", function () { load(); });
+  keyInput.addEventListener("keydown", function (e) { if (e.key === "Enter") load(); });
+
+  var filters = document.querySelectorAll(".filter");
+  for (var i = 0; i < filters.length; i++) {
+    filters[i].addEventListener("click", function (e) {
+      state.filter = e.currentTarget.getAttribute("data-filter");
+      render();
+    });
+  }
+
+  newDate.addEventListener("change", function () { loadSlots(newDate.value); });
+  document.getElementById("dialogSave").addEventListener("click", saveReschedule);
+  document.getElementById("dialogCancel").addEventListener("click", function () { closeDialog(); });
+
   if (savedKey) load();
 })();
 </script>
