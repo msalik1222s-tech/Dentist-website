@@ -21,6 +21,11 @@ const LIMITS = {
   appointments: { windowMs: 10 * 60 * 1000, max: 5 },
   chat: { windowMs: 60 * 1000, max: 15 },
   availability: { windowMs: 60 * 1000, max: 30 },
+  // ADMIN_KEY is a single static secret with no lockout behind it, so an
+  // unthrottled admin route is a password an attacker may guess forever.
+  // Twenty attempts per ten minutes is far more than a human clicking
+  // "Load" needs, and slow enough that guessing the key is hopeless.
+  admin: { windowMs: 10 * 60 * 1000, max: 20 },
 };
 
 function limiter(bucket) {
@@ -65,8 +70,13 @@ function validate(body) {
   return { errors, clean: { name, phone, date, time, service, message } };
 }
 
+// Header only. The key used to be accepted as ?key=... too, which put the
+// clinic's admin secret into places nobody thinks of as secret: server and CDN
+// access logs, browser history, and the Referer header of anything the page
+// later links to. admin.html has always sent the header, so nothing that
+// legitimately worked before stops working here.
 function requireAdmin(req, res, next) {
-  const key = req.headers["x-admin-key"] || req.query.key;
+  const key = req.headers["x-admin-key"];
   if (!ADMIN_KEY || key !== ADMIN_KEY) {
     return res.status(401).json({ ok: false, error: "Unauthorized." });
   }
@@ -141,7 +151,9 @@ function buildApiRouter() {
     });
   });
 
-  api.get("/appointments", requireAdmin, async (req, res, next) => {
+  // The limiter runs before the auth check on purpose: it is wrong guesses
+  // that need throttling, and a 401 that costs nothing is a free guess.
+  api.get("/appointments", limiter("admin"), requireAdmin, async (req, res, next) => {
     try {
       res.json({ ok: true, appointments: await store.loadAppointments() });
     } catch (err) {
