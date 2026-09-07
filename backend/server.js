@@ -28,7 +28,12 @@ app.listen(PORT, () => {
       ? "Storage: Postgres (DATABASE_URL)"
       : "Storage: backend/data/appointments.json (set DATABASE_URL to use Postgres)"
   );
-  if (!mailer.isEnabled()) console.log("Email notifications disabled (set SMTP_HOST in .env to enable).");
+  const missingMail = mailer.missingConfig();
+  if (missingMail.length) {
+    console.log(`Email notifications disabled — set ${missingMail.join(" and ")} in backend/.env to enable.`);
+  } else {
+    console.log("Email notifications: on (clinic address from CLINIC_EMAIL).");
+  }
   if (!process.env.ADMIN_KEY) console.log("WARNING: ADMIN_KEY not set — /api/appointments admin view is locked out.");
   const ai = chat.status();
   if (ai.enabled) {
