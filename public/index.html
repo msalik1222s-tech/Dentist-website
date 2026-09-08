@@ -181,37 +181,27 @@ a.topbar__item:hover { color: #fff; }
     linear-gradient(180deg, #fff 0%, var(--bg-alt) 100%);
 }
 .hero__inner {
-  display: grid; grid-template-columns: 1.05fr .95fr; gap: 3rem; align-items: center;
-  padding-block: clamp(3rem, 7vw, 5.5rem);
+  display: grid; grid-template-columns: 1.05fr .95fr; gap: clamp(2.5rem, 5vw, 4.5rem);
+  align-items: center; padding-block: clamp(3.25rem, 7vw, 6rem);
 }
+.hero .eyebrow { margin-bottom: 1rem; }
+.hero h1 { margin-bottom: .45em; }
 .hero h1 span { color: var(--teal-600); }
-.lead { font-size: 1.1rem; color: var(--ink-500); max-width: 52ch; }
-.hero__actions { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 1.8rem; }
+.lead { font-size: clamp(1.02rem, 1.6vw, 1.14rem); color: var(--ink-500); max-width: 46ch; line-height: 1.65; }
+.hero__actions { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 2.1rem; }
 
 .hero__badges {
-  display: flex; flex-wrap: wrap; gap: 2rem; list-style: none; margin: 2.6rem 0 0; padding: 1.6rem 0 0;
-  border-top: 1px solid var(--line); color: var(--ink-500); font-size: .9rem;
+  display: flex; flex-wrap: wrap; gap: 2.25rem; list-style: none; margin: 3rem 0 0; padding: 1.75rem 0 0;
+  border-top: 1px solid var(--line); color: var(--ink-500); font-size: .88rem; line-height: 1.45;
 }
-.hero__badges strong { display: block; font-size: 1.5rem; color: var(--ink-900); font-weight: 800; }
+.hero__badges strong {
+  display: block; font-size: 1.28rem; color: var(--ink-900); font-weight: 800;
+  letter-spacing: -.01em; margin-bottom: .12rem;
+}
 
 .hero__visual { position: relative; display: grid; place-items: center; min-height: 340px; }
-.hero__card {
-  position: relative; z-index: 2; background: #fff; border-radius: var(--radius-lg);
-  padding: 2.2rem 2rem; text-align: center; max-width: 330px; box-shadow: var(--shadow-lg);
-  border: 1px solid var(--line);
-}
-.hero__tooth {
-  width: 84px; height: 84px; margin: 0 auto 1.1rem; border-radius: 24px; display: grid; place-items: center;
-  background: linear-gradient(135deg, var(--teal-500), var(--teal-700));
-  box-shadow: 0 12px 26px rgba(20, 168, 154, .35);
-}
-.hero__tooth svg { width: 46px; height: 46px; fill: #fff; }
-.hero__card-title { font-weight: 800; color: var(--ink-900); font-size: 1.1rem; margin-bottom: .35rem; }
-.hero__card-text { color: var(--ink-500); font-size: .92rem; margin: 0; }
-
-.hero__blob { position: absolute; border-radius: 50%; filter: blur(2px); opacity: .5; }
-.hero__blob--1 { width: 250px; height: 250px; background: var(--teal-100); top: 4%; right: 2%; }
-.hero__blob--2 { width: 170px; height: 170px; background: var(--sand); bottom: 4%; left: 4%; }
+/* .hero__card, .hero__tooth and .hero__blob used to style an illustrated hero
+   panel that the photograph replaced. Their rules are gone with them. */
 
 /* ---------------- Strip ---------------- */
 .strip { padding-block: 3rem; border-bottom: 1px solid var(--line); }
@@ -314,8 +304,11 @@ a.topbar__item:hover { color: #fff; }
   background: #fff; border: 1px solid var(--line); border-radius: var(--radius-lg);
   padding: 2rem; box-shadow: var(--shadow);
 }
-.field { margin-bottom: 1.1rem; }
+/* position: relative so a date input's picker button, which is absolutely
+   positioned below, resolves against its own field. */
+.field { margin-bottom: 1.1rem; position: relative; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.field-row > .field { min-width: 0; }
 .field label { display: block; font-size: .88rem; font-weight: 600; color: var(--ink-900); margin-bottom: .4rem; }
 .optional { font-weight: 500; color: var(--ink-300); }
 .field input, .field select, .field textarea {
@@ -323,6 +316,19 @@ a.topbar__item:hover { color: #fff; }
   background: var(--bg-alt); border: 1px solid var(--line); border-radius: 12px;
   transition: border-color .18s, background .18s, box-shadow .18s;
 }
+.field input[type="date"] {
+  padding-right: 2.6rem;              /* room the picker button lives in */
+  min-height: 3rem;                   /* the native control needs the height */
+  overflow: hidden;                   /* never let the value spill out */
+}
+/* Safari centres the value inside the box and lets it drift under the icon. */
+.field input[type="date"]::-webkit-date-and-time-value { text-align: left; margin: 0; }
+.field input[type="date"]::-webkit-datetime-edit { padding: 0; }
+.field input[type="date"]::-webkit-calendar-picker-indicator {
+  position: absolute; right: .95rem; width: 1.15rem; height: 1.15rem;
+  padding: 0; margin: 0; cursor: pointer; opacity: .55;
+}
+.field input[type="date"]:hover::-webkit-calendar-picker-indicator { opacity: .85; }
 .field textarea { resize: vertical; min-height: 96px; }
 .field input::placeholder, .field textarea::placeholder { color: var(--ink-300); }
 .field input:focus, .field select:focus, .field textarea:focus {
@@ -417,9 +423,13 @@ a.topbar__item:hover { color: #fff; }
   .footer { padding-bottom: 76px; }
 }
 
+@media (max-width: 760px) {
+  .field-row { grid-template-columns: 1fr; }
+  .field input, .field select, .field textarea { font-size: 16px; }
+}
+
 @media (max-width: 520px) {
   .strip__grid { grid-template-columns: 1fr; }
-  .field-row { grid-template-columns: 1fr; }
   .footer__grid { grid-template-columns: 1fr; }
   .topbar__inner { justify-content: center; }
   .contact__form { padding: 1.5rem; }
@@ -429,15 +439,22 @@ a.topbar__item:hover { color: #fff; }
 
 /* ---------------- Photos: hero, about, gallery ---------------- */
 .hero__photo {
-  margin: 0; position: relative; z-index: 2; border-radius: var(--radius-lg); overflow: hidden;
-  aspect-ratio: 4 / 5; box-shadow: var(--shadow-lg); border: 6px solid #fff; max-width: 420px;
+  margin: 0; position: relative; z-index: 2; border-radius: 28px; overflow: hidden;
+  aspect-ratio: 4 / 5; max-width: 430px; background: var(--teal-50);
+  box-shadow: 0 32px 70px -18px rgba(13, 43, 49, .28), 0 0 0 1px rgba(20, 168, 154, .10);
+  outline: 7px solid #fff; outline-offset: -7px;
 }
-.hero__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* 38%/28% puts the crop window over her face and shoulders rather than the
+   centre of the frame, which is the equipment behind her. */
+.hero__photo img {
+  width: 100%; height: 100%; object-fit: cover; object-position: 38% 28%; display: block;
+}
 .hero__float {
-  position: absolute; z-index: 3; left: 50%; bottom: -18px; transform: translateX(-50%);
-  display: flex; align-items: flex-start; gap: .8rem; width: min(330px, 92%);
-  background: #fff; border: 1px solid var(--line); border-radius: var(--radius);
-  padding: .9rem 1.1rem; box-shadow: var(--shadow);
+  position: absolute; z-index: 3; left: 50%; bottom: -22px; transform: translateX(-50%);
+  display: flex; align-items: center; gap: .85rem; width: min(340px, 94%);
+  background: rgba(255, 255, 255, .96); backdrop-filter: blur(6px);
+  border: 1px solid var(--line); border-radius: 18px;
+  padding: .95rem 1.15rem; box-shadow: 0 18px 40px -12px rgba(13, 43, 49, .22);
 }
 .hero__float-icon {
   flex: 0 0 auto; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px;
@@ -471,10 +488,24 @@ a.topbar__item:hover { color: #fff; }
 }
 
 @media (max-width: 980px) {
-  .hero__photo { max-width: 100%; aspect-ratio: 16 / 11; }
+  .hero__photo { max-width: 560px; aspect-ratio: 5 / 4; }
   .about__photo { aspect-ratio: 16 / 11; }
   .gallery { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 200px; }
   .gallery__item--wide { grid-column: span 1; }
+}
+
+/* On a phone the floating badge was sitting on top of the photograph — on a
+   short 16/11 crop it covered the patient herself. Below this width it stops
+   floating and simply follows the image, so nothing overlaps the face and the
+   badge is still read in the same order. The overlap stays on wider screens,
+   where the photo is tall enough to carry it. */
+@media (max-width: 700px) {
+  .hero__visual { display: block; }
+  .hero__photo { max-width: 100%; aspect-ratio: 4 / 3; }
+  .hero__float {
+    position: static; transform: none; width: 100%; margin-top: .9rem;
+    backdrop-filter: none; box-shadow: var(--shadow-sm);
+  }
 }
 @media (max-width: 560px) {
   .gallery { grid-template-columns: 1fr; grid-auto-rows: 220px; }
@@ -628,8 +659,12 @@ a.topbar__item:hover { color: #fff; }
 
       <div class="hero__visual reveal">
         <figure class="hero__photo">
-          <img src="img/hero-scanner.jpg"
-               alt="Male dentist examining a young patient's teeth" width="900" height="1100" />
+          <!-- object-position keeps her face in frame: the source is landscape and
+               the hero crops it to portrait, so without this the crop cuts across
+               her face. Change it if the image is ever swapped. -->
+          <img src="img/patient-smile.jpg"
+               alt="Smiling adult patient in the treatment chair after her appointment"
+               width="1400" height="933" fetchpriority="high" />
         </figure>
         <div class="hero__float">
           <span class="hero__float-icon" aria-hidden="true">
@@ -799,8 +834,8 @@ a.topbar__item:hover { color: #fff; }
           <figcaption>Digital x-rays</figcaption>
         </figure>
         <figure class="gallery__item gallery__item--wide reveal">
-          <img src="img/patient-smile.jpg" alt="Smiling patient after her dental treatment" loading="lazy" width="1000" height="640" />
-          <figcaption>Happy patients</figcaption>
+          <img src="img/hero-scanner.jpg" alt="Dentist examining a young patient's teeth" loading="lazy" width="1000" height="640" />
+          <figcaption>Gentle care for every age</figcaption>
         </figure>
       </div>
     </div>
