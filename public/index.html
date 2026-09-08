@@ -4,7 +4,26 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>BrightSmile Dental Clinic — Gentle, Modern Dentistry Near You</title>
-<meta name="description" content="BrightSmile Dental Clinic offers general dentistry, teeth whitening, braces, implants and emergency dental care. Book your appointment today." />
+<meta name="description" content="Bright Smile Dental Clinic in Jeddah offers general dentistry, teeth whitening, braces, implants and emergency dental care. Book your appointment today." />
+
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+<!-- Link previews (WhatsApp, iMessage, Slack, email). The absolute URLs below
+     are this deployment's own address, not a placeholder: scrapers do not run
+     JavaScript and most ignore relative image paths, so og:image has to be
+     absolute to render at all. WHEN A CUSTOM DOMAIN IS CONNECTED, update the
+     two URLs here to match it. -->
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Bright Smile Dental Clinic" />
+<meta property="og:title" content="Bright Smile Dental Clinic — Gentle, Modern Dentistry in Jeddah" />
+<meta property="og:description" content="Painless treatments, clear pricing and modern equipment. Open 7 days a week, 9 AM – 9 PM, with same-day emergency slots. Book online or on WhatsApp." />
+<meta property="og:image" content="https://dentist-website-seven-psi.vercel.app/img/hero-scanner.jpg" />
+<meta property="og:image:alt" content="Dentist examining a young patient at Bright Smile Dental Clinic" />
+<meta property="og:url" content="https://dentist-website-seven-psi.vercel.app/" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Bright Smile Dental Clinic — Gentle, Modern Dentistry in Jeddah" />
+<meta name="twitter:description" content="Painless treatments, clear pricing and modern equipment. Open 7 days a week, with same-day emergency slots." />
+<meta name="twitter:image" content="https://dentist-website-seven-psi.vercel.app/img/hero-scanner.jpg" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -255,6 +274,13 @@ a.topbar__item:hover { color: #fff; }
   border-radius: var(--radius-lg); padding: 1.9rem 1.7rem;
 }
 .review__stars { color: var(--amber); letter-spacing: .12em; margin-bottom: .8rem; }
+.promise__icon {
+  display: grid; place-items: center; width: 44px; height: 44px; border-radius: 13px;
+  background: var(--teal-50); color: var(--teal-700); margin-bottom: 1.1rem;
+}
+.promise__icon svg { width: 22px; height: 22px; fill: currentColor; }
+.review h3 { font-size: 1.05rem; margin: 0 0 .55rem; color: var(--ink-900); }
+.review p { margin: 0; color: var(--ink-700); font-size: .97rem; }
 .review blockquote { margin: 0 0 1.4rem; color: var(--ink-700); font-size: .97rem; }
 .review figcaption { display: flex; align-items: center; gap: .8rem; }
 .avatar {
@@ -339,6 +365,14 @@ a.topbar__item:hover { color: #fff; }
   box-shadow: 0 10px 26px rgba(20, 168, 154, .45);
 }
 .fab:hover { color: #fff; background: var(--teal-600); }
+/* Two fixed buttons sit over the page on mobile. The Book pill is pure
+   duplication once the booking form itself is on screen — and that is the
+   one place it was covering the fields someone is trying to fill in — so it
+   tucks away while the form is in view. The chat button stays: it is a way
+   to ask a question about the form, not a repeat of it. */
+.fab { transition: opacity .25s ease, transform .25s ease; }
+.fab.is-tucked { opacity: 0; transform: translateY(160%); pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .fab { transition: none; } }
 .fab svg { width: 19px; height: 19px; fill: currentColor; }
 
 /* ---------------- Reveal on scroll ---------------- */
@@ -506,7 +540,8 @@ a.topbar__item:hover { color: #fff; }
 
 @media (max-width: 420px) {
   .chat-panel { left: 8px; right: 8px; width: auto; bottom: 80px; }
-  .chat-toggle { left: 12px; }
+  .chat-toggle { left: 12px; width: 52px; height: 52px; }
+  .chat-toggle svg { width: 23px; height: 23px; }
 }
 
 </style>
@@ -546,7 +581,7 @@ a.topbar__item:hover { color: #fff; }
         <li><a class="nav__link" href="#services">Services</a></li>
         <li><a class="nav__link" href="#about">About</a></li>
         <li><a class="nav__link" href="#gallery">Gallery</a></li>
-        <li><a class="nav__link" href="#reviews">Reviews</a></li>
+        <li><a class="nav__link" href="#why">Why us</a></li>
         <li><a class="nav__link" href="#contact">Contact</a></li>
       </ul>
       <a class="btn btn--primary nav__cta" href="#appointment">Book Appointment</a>
@@ -585,9 +620,9 @@ a.topbar__item:hover { color: #fff; }
         </div>
 
         <ul class="hero__badges">
-          <li><strong>15+</strong> years of practice</li>
-          <li><strong>12k+</strong> happy patients</li>
-          <li><strong>4.9★</strong> average rating</li>
+          <li><strong>7 days</strong> a week</li>
+          <li><strong>Same-day</strong> emergency slots</li>
+          <li><strong>Clear</strong> pricing upfront</li>
         </ul>
       </div>
 
@@ -702,8 +737,8 @@ a.topbar__item:hover { color: #fff; }
                alt="Two dentists in protective gear treating a patient at the clinic" width="800" height="1000" />
         </figure>
         <div class="about__stat">
-          <strong>15+</strong>
-          <span>years of clinical experience</span>
+          <strong>7 days</strong>
+          <span>a week, 9 AM – 9 PM</span>
         </div>
       </div>
 
@@ -711,16 +746,19 @@ a.topbar__item:hover { color: #fff; }
         <p class="eyebrow">Meet your dentist</p>
         <h2>Dr. Asad</h2>
         <p>
-          Dr. Asad has treated thousands of patients across years of practice,
-          with a special focus on pain-free treatment and cosmetic dentistry.
+          Dr. Asad's practice is built around pain-free treatment and cosmetic
+          dentistry, for everyone from anxious first-timers to whole families.
           He believes half of dental fear comes from not knowing what's happening —
           so every plan is explained in plain language before anything begins.
         </p>
+        <!-- DEMO COPY: qualifications, registrations and certifications were
+             removed because none had been confirmed with the clinic. Add them
+             back only with the real, verified wording. -->
         <ul class="ticks">
-          <li>Registered with the Saudi Commission for Health Specialties</li>
-          <li>Certified in Invisalign &amp; clear aligner therapy</li>
-          <li>Advanced training in implantology</li>
-          <li>Consultations available in Arabic and English</li>
+          <li>Every treatment plan explained before it begins</li>
+          <li>A written estimate before any work starts</li>
+          <li>General, cosmetic and emergency care under one roof</li>
+          <li>Consultations in Arabic and English</li>
         </ul>
         <a class="btn btn--primary" href="#appointment">Schedule a consultation</a>
       </div>
@@ -768,31 +806,38 @@ a.topbar__item:hover { color: #fff; }
     </div>
   </section>
 
-  <!-- ============ REVIEWS ============ -->
-  <section class="section" id="reviews">
+  <!-- ============ WHY US ============ -->
+  <!-- DEMO COPY: this section replaced patient testimonials and a 4.9/5
+       rating, none of which came from real patients. Once the clinic has
+       genuine reviews, they belong here — with real names and consent. -->
+  <section class="section" id="why">
     <div class="container">
       <header class="section__head reveal">
-        <p class="eyebrow">Patient stories</p>
-        <h2>Rated 4.9 out of 5 by our patients</h2>
+        <p class="eyebrow">Why patients choose us</p>
+        <h2>Calm, clear, and no surprises</h2>
+        <p class="section__sub">
+          Three things we hold ourselves to, whether you are here for a routine
+          check-up or an emergency.
+        </p>
       </header>
 
       <div class="reviews">
         <figure class="review reveal">
-          <div class="review__stars" aria-label="5 out of 5 stars">★★★★★</div>
-          <blockquote>I've avoided dentists for years. Got two fillings here and genuinely felt nothing. The staff explained every step before starting.</blockquote>
-          <figcaption><span class="avatar" aria-hidden="true">S</span><div><strong>Sara M.</strong><small>Fillings &amp; cleaning</small></div></figcaption>
+          <span class="promise__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.4 1.2 3.9 2.2 5.1.6.8 1.1 1.4 1.3 2.1l.2.8h6.6l.2-.8c.2-.7.7-1.3 1.3-2.1C18.8 12.9 20 11.4 20 9a7 7 0 0 0-8-7Zm-3 17h6v1.5a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 20.5V19Z"/></svg></span>
+          <h3>Explained before it happens</h3>
+          <p>Every plan is walked through in plain language first — what we found, what we suggest, and what it means for you. Half of dental fear is not knowing.</p>
         </figure>
 
         <figure class="review reveal">
-          <div class="review__stars" aria-label="5 out of 5 stars">★★★★★</div>
-          <blockquote>My son actually asks when the next appointment is. That says everything about how they treat children here.</blockquote>
-          <figcaption><span class="avatar" aria-hidden="true">B</span><div><strong>Bilal A.</strong><small>Paediatric check-up</small></div></figcaption>
+          <span class="promise__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 1 3 5v6c0 5 3.8 9.7 9 11 5.2-1.3 9-6 9-11V5l-9-4Zm4.6 7.4-5.8 5.8a1 1 0 0 1-1.4 0l-2.6-2.6 1.4-1.4 1.9 1.9 5.1-5.1 1.4 1.4Z"/></svg></span>
+          <h3>The price you were quoted</h3>
+          <p>You get a written estimate before any work starts, and it is the figure you pay. If something changes mid-treatment, we stop and talk to you first.</p>
         </figure>
 
         <figure class="review reveal">
-          <div class="review__stars" aria-label="5 out of 5 stars">★★★★★</div>
-          <blockquote>Got my implant done last year — no complications, and the cost was exactly what they quoted at the start. Highly recommended.</blockquote>
-          <figcaption><span class="avatar" aria-hidden="true">F</span><div><strong>Farhan R.</strong><small>Dental implant</small></div></figcaption>
+          <span class="promise__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8Z"/></svg></span>
+          <h3>Room kept for emergencies</h3>
+          <p>Slots are held every day for pain and urgent problems, so a bad night does not turn into a week of waiting for an appointment.</p>
         </figure>
       </div>
     </div>
@@ -820,7 +865,7 @@ a.topbar__item:hover { color: #fff; }
           </li>
           <li>
             <span class="info-list__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm8 7 8-5H4l8 5Z"/></svg></span>
-            <div><strong>Email</strong><br /><a href="mailto:hello@brightsmile.com">hello@brightsmile.com</a></div>
+            <div><strong>Email</strong><br />Available on request</div>
           </li>
         </ul>
 
@@ -908,7 +953,7 @@ a.topbar__item:hover { color: #fff; }
         </span>
         <span class="logo__text">Bright<strong>Smile</strong><small>Dental Clinic</small></span>
       </a>
-      <p>Gentle, modern dentistry for the whole family — trusted by thousands of patients since 2010.</p>
+      <p>Gentle, modern dentistry for the whole family — general, cosmetic and emergency care in Jeddah.</p>
     </div>
 
     <nav class="footer__col" aria-label="Services">
@@ -927,7 +972,7 @@ a.topbar__item:hover { color: #fff; }
       <ul>
         <li><a href="#about">About the dentist</a></li>
         <li><a href="#gallery">Clinic gallery</a></li>
-        <li><a href="#reviews">Patient reviews</a></li>
+        <li><a href="#why">Why choose us</a></li>
         <li><a href="#appointment">Book appointment</a></li>
         <li><a href="#contact">Contact &amp; hours</a></li>
       </ul>
@@ -937,7 +982,7 @@ a.topbar__item:hover { color: #fff; }
       <h4>Get in touch</h4>
       <ul>
         <li><a href="tel:+966550849597">+966 55 084 9597</a></li>
-        <li><a href="mailto:hello@brightsmile.com">hello@brightsmile.com</a></li>
+        <li>Email available on request</li>
         <li>Al Rawdah District,<br />Jeddah 23434</li>
       </ul>
     </div>
@@ -1010,6 +1055,17 @@ a.topbar__item:hover { color: #fff; }
   }
   onScroll();
   window.addEventListener("scroll", onScroll, { passive: true });
+
+  /* ---- Keep the floating Book pill out of the booking form ---- */
+  var fab = document.querySelector(".fab");
+  var appointment = document.getElementById("appointment");
+  if (fab && appointment && "IntersectionObserver" in window) {
+    new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        fab.classList.toggle("is-tucked", entry.isIntersecting);
+      });
+    }, { rootMargin: "0px 0px -20% 0px" }).observe(appointment);
+  }
 
   /* ---- Highlight the section currently in view ---- */
   var links = Array.prototype.slice.call(document.querySelectorAll(".nav__link"));

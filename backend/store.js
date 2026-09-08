@@ -13,6 +13,12 @@ const db = require("./db");
 const mailer = require("./mailer");
 
 const CLINIC = require("./data/clinic.json");
+// DEMO PRICING — NOT CONFIRMED BY THE CLINIC.
+// The startingPrice/priceLabel values in data/services.json are sample
+// figures written for the demo build. They are not decoration: the AI
+// assistant quotes them to patients as the clinic's official prices, and
+// they appear on every service card on the homepage. Have the client
+// confirm or replace every one of them before the site goes public.
 const SERVICES = require("./data/services.json");
 
 // Errors carry a `status` so callers can tell "the patient did something

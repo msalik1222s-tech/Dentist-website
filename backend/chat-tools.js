@@ -44,10 +44,19 @@ function buildSystemPrompt() {
     `Dentist: ${clinic.dentist}`,
     `Opening hours: ${clinic.hoursLabel}`,
     `Phone: ${clinic.phone}`,
-    `Email: ${clinic.email}`,
+    // No public email address is published. Said outright, because an empty
+    // "Email:" line invites the model to fill the gap with something
+    // plausible — and a patient emailing an address that does not exist
+    // gets silence, not an answer.
+    clinic.email
+      ? `Email: ${clinic.email}`
+      : "Email: the clinic does not publish an email address. If a patient asks for one, give them the phone number instead — never invent an address.",
     `Address: ${clinic.address}`,
     `Currency: ${clinic.currency}`,
     "",
+    // These come from data/services.json, which still holds DEMO pricing —
+    // see the note in store.js. Whatever is in that file is what the
+    // assistant tells patients they will pay.
     "Services and official prices:",
     ...services.map((s) => `- ${s.name}: ${s.priceLabel} (id: ${s.id})`),
     "",
