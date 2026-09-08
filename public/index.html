@@ -444,10 +444,11 @@ a.topbar__item:hover { color: #fff; }
   box-shadow: 0 32px 70px -18px rgba(13, 43, 49, .28), 0 0 0 1px rgba(20, 168, 154, .10);
   outline: 7px solid #fff; outline-offset: -7px;
 }
-/* 38%/28% puts the crop window over her face and shoulders rather than the
-   centre of the frame, which is the equipment behind her. */
+/* The vertical half of the pair is what matters: the mobile crop shows only
+   the middle 50% of this portrait frame, and 46% lands that band on the chair
+   instead of the ceiling. */
 .hero__photo img {
-  width: 100%; height: 100%; object-fit: cover; object-position: 38% 28%; display: block;
+  width: 100%; height: 100%; object-fit: cover; object-position: 50% 46%; display: block;
 }
 .hero__float {
   position: absolute; z-index: 3; left: 50%; bottom: -22px; transform: translateX(-50%);
@@ -659,12 +660,13 @@ a.topbar__item:hover { color: #fff; }
 
       <div class="hero__visual reveal">
         <figure class="hero__photo">
-          <!-- object-position keeps her face in frame: the source is landscape and
-               the hero crops it to portrait, so without this the crop cuts across
-               her face. Change it if the image is ever swapped. -->
-          <img src="img/patient-smile.jpg"
-               alt="Smiling adult patient in the treatment chair after her appointment"
-               width="1400" height="933" fetchpriority="high" />
+          <!-- Portrait at source (1400x2100), so the desktop 4/5 crop barely trims
+               it. The mobile 4/3 crop keeps only the middle half of the frame, and
+               object-position is what centres that band on the chair rather than on
+               the ceiling. Retune it if this image is ever swapped. -->
+          <img src="img/room-chair.jpg"
+               alt="Treatment room at Bright Smile Dental Clinic with a modern dental chair"
+               width="1400" height="2100" fetchpriority="high" />
         </figure>
         <div class="hero__float">
           <span class="hero__float-icon" aria-hidden="true">
@@ -814,8 +816,8 @@ a.topbar__item:hover { color: #fff; }
 
       <div class="gallery">
         <figure class="gallery__item gallery__item--wide reveal">
-          <img src="img/room-chair.jpg" alt="Bright treatment room with a modern dental chair" loading="lazy" width="1000" height="640" />
-          <figcaption>Our treatment rooms</figcaption>
+          <img src="img/patient-smile.jpg" alt="Smiling patient after her dental treatment" loading="lazy" width="1000" height="640" />
+          <figcaption>Happy patients</figcaption>
         </figure>
         <figure class="gallery__item reveal">
           <img src="img/room-equipment.jpg" alt="Modern dental office with equipment ready for a patient" loading="lazy" width="700" height="520" />
