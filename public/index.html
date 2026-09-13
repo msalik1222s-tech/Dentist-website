@@ -166,6 +166,17 @@ a.topbar__item:hover { color: #fff; }
 .nav__link:hover, .nav__link.is-active { color: var(--ink-900); }
 .nav__link:hover::after, .nav__link.is-active::after { width: 100%; }
 
+/* Staff entrance. Deliberately quieter than the Book Appointment CTA — it is
+   a signpost for two or three people, not a call to action for patients. */
+.nav__link--admin {
+  display: inline-flex; align-items: center; gap: .4rem;
+  padding: .36rem .74rem; border: 1px solid var(--line); border-radius: 999px;
+  color: var(--ink-700); transition: border-color .2s, color .2s, background .2s;
+}
+.nav__link--admin svg { width: 13px; height: 13px; fill: currentColor; }
+.nav__link--admin:hover { border-color: var(--teal-500); color: var(--teal-600); background: var(--teal-50); }
+.nav__link--admin::after { display: none; }
+
 .nav-toggle { display: none; background: none; border: 0; padding: 10px; cursor: pointer; }
 .nav-toggle__bars { display: grid; gap: 5px; }
 .nav-toggle__bars i { display: block; width: 24px; height: 2px; background: var(--ink-900); border-radius: 2px; transition: transform .25s, opacity .2s; }
@@ -422,6 +433,13 @@ a.topbar__item:hover { color: #fff; }
   .nav__list { flex-direction: column; align-items: stretch; gap: 0; }
   .nav__link { display: block; padding: .85rem 0; border-bottom: 1px solid var(--line); }
   .nav__link::after { display: none; }
+  /* In the slide-down menu every item is a full-width row, so the desktop
+     pill would look like a stray button. */
+  .nav__link--admin {
+    border: 0; border-bottom: 1px solid var(--line); border-radius: 0;
+    padding: .85rem 0; justify-content: flex-start;
+  }
+  .nav__link--admin:hover { background: none; }
   .nav__cta { margin-top: 1.1rem; }
   .cards, .reviews { grid-template-columns: 1fr; }
   .hero__badges { gap: 1.4rem; }
@@ -619,6 +637,12 @@ a.topbar__item:hover { color: #fff; }
         <li><a class="nav__link" href="#gallery">Gallery</a></li>
         <li><a class="nav__link" href="#why">Why us</a></li>
         <li><a class="nav__link" href="#contact">Contact</a></li>
+        <li>
+          <a class="nav__link nav__link--admin" href="/admin">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V11a2 2 0 0 0-2-2h-1V6a5 5 0 0 0-5-5Zm0 2a3 3 0 0 1 3 3v3H9V6a3 3 0 0 1 3-3Zm0 11a2 2 0 0 1 1 3.73V19a1 1 0 0 1-2 0v-1.27A2 2 0 0 1 12 14Z"/></svg>
+            Admin Login
+          </a>
+        </li>
       </ul>
       <a class="btn btn--primary nav__cta" href="#appointment">Book Appointment</a>
     </nav>
@@ -1015,6 +1039,7 @@ a.topbar__item:hover { color: #fff; }
         <li><a href="#why">Why choose us</a></li>
         <li><a href="#appointment">Book appointment</a></li>
         <li><a href="#contact">Contact &amp; hours</a></li>
+        <li><a href="/admin">Admin Login</a></li>
       </ul>
     </nav>
 
@@ -1109,7 +1134,11 @@ a.topbar__item:hover { color: #fff; }
 
   /* ---- Highlight the section currently in view ---- */
   var links = Array.prototype.slice.call(document.querySelectorAll(".nav__link"));
+  // Only in-page anchors describe a section. Passing anything else — "/admin"
+  // — to querySelector throws a SyntaxError, which would abort this whole
+  // script and silently kill the scrollspy and the reveal animations below.
   var sections = links
+    .filter(function (link) { return (link.getAttribute("href") || "").charAt(0) === "#"; })
     .map(function (link) { return document.querySelector(link.getAttribute("href")); })
     .filter(Boolean);
 
@@ -1353,19 +1382,28 @@ a.topbar__item:hover { color: #fff; }
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messages: history }),
     })
-      .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+      .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; }); })
       .then(function (res) {
         typingEl.remove();
         if (!res.ok || !res.data.ok) {
           var errText = (res.data && res.data.error) || "Something went wrong. Please call the clinic directly.";
+          // What the patient reads stays short and calm; the console keeps the
+          // detail whoever is debugging actually needs.
+          console.error("[chat] HTTP " + res.status + " — " + errText);
           addMessage("bot", errText);
           return;
         }
         addMessage("bot", res.data.reply);
         history.push({ role: "assistant", content: res.data.reply });
       })
-      .catch(function () {
+      .catch(function (err) {
         typingEl.remove();
+        // Without this the cause never surfaces anywhere. A request blocked by
+        // an ad blocker or privacy extension, a dropped connection and a reply
+        // that is not JSON all reach this branch and all read as one generic
+        // line, which is what made an earlier report of "the assistant stopped
+        // working" impossible to tell apart from a real outage.
+        console.error("[chat] request did not complete:", err);
         addMessage("bot", "Network error — please try again or call the clinic directly.");
       })
       .finally(function () {
