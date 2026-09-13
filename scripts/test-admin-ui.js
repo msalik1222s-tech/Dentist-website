@@ -465,7 +465,30 @@ async function main() {
   await new Promise((r) => setTimeout(r, 260));
   check("everything is re-enabled afterwards", page.el.refresh.disabled === false && page.el.load.disabled === false);
 
-  console.log("\n=== 11. The key never leaves the header ===");
+  console.log("\n=== 11. Signing out clears the desk ===");
+  // A reception machine is shared and is rarely shut down between shifts, so
+  // "walk away" has to be a thing staff can actually do.
+  check("the key is in session storage while signed in", page.storage.get("adminKey") === TEST_KEY);
+  const requestsBeforeSignOut = page.requests.length;
+  page.el.signout.click();
+  check("the key is forgotten", page.storage.get("adminKey") === undefined, String(page.storage.get("adminKey")));
+  check("the key field is emptied", page.el.key.value === "");
+  check("the appointment table is hidden", page.el.results.hidden === true);
+  check("the filters are hidden", page.el.toolbar.hidden === true);
+  check("no patient data is left on screen", page.el.rows.textContent === "");
+  check("signing out says so", /signed out/i.test(page.el.status.textContent), page.el.status.textContent);
+  check("signing out talks to no server", page.requests.length === requestsBeforeSignOut);
+
+  page.el.load.click();
+  await settle();
+  check("loading after sign-out asks for the key again", /Enter the admin key/i.test(page.el.status.textContent), page.el.status.textContent);
+
+  page.el.key.value = TEST_KEY;
+  page.el.load.click();
+  await settle();
+  check("signing back in works", page.el.results.hidden === false && page.el.rows.childNodes.length === 5, `${page.el.rows.childNodes.length} rows`);
+
+  console.log("\n=== 12. The key never leaves the header ===");
   const urls = page.requests.map((r) => r.url).join(" ");
   check("no request URL contains the key", urls.indexOf(TEST_KEY) === -1);
   check("no request URL carries a key parameter", !/[?&]key=/.test(urls), urls);

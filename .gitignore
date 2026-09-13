@@ -4,3 +4,7 @@ backend/.env
 .env
 .env.local
 backend/data/appointments.json
+
+# Demo mode (local only)
+.env.demo
+demo/

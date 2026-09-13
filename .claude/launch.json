@@ -4,7 +4,26 @@
     {
       "name": "dentist-site",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["backend/server.js"],
+      "runtimeArgs": [
+        "backend/server.js"
+      ],
+      "port": 5500
+    },
+    {
+      "name": "dentist-demo",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "scripts/demo.js"
+      ],
+      "port": 5500
+    },
+    {
+      "name": "dentist-demo-reset",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "scripts/demo.js",
+        "--reset"
+      ],
       "port": 5500
     }
   ]

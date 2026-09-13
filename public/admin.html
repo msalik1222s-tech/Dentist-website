@@ -103,6 +103,10 @@
     <button class="filter" data-filter="cancelled" aria-pressed="false">Cancelled</button>
     <span class="spacer"></span>
     <button id="refresh" class="btn-plain">Refresh</button>
+    <!-- Reception computers are shared and rarely get closed down between
+         shifts. Without this the key stays in session storage, and the next
+         person to sit down is already signed in. -->
+    <button id="signout" class="btn-plain">Sign out</button>
   </div>
 
   <p id="status" role="status" aria-live="polite"></p>
@@ -508,8 +512,25 @@
 
   // ---- wiring ----
 
+  // Forgets the key and clears the patient data off the screen, so a shared
+  // reception machine is safe to walk away from. Nothing is sent to the
+  // server: the key is a static secret, so there is no session to end there.
+  function signOut() {
+    sessionStorage.removeItem("adminKey");
+    keyInput.value = "";
+    state.appointments = [];
+    state.filter = "all";
+    state.loaded = false;
+    rows.textContent = "";
+    table.hidden = true;
+    toolbar.hidden = true;
+    say("Signed out. Enter the admin key to load appointments again.", "info");
+    keyInput.focus();
+  }
+
   document.getElementById("load").addEventListener("click", function () { load(); });
   document.getElementById("refresh").addEventListener("click", function () { load(); });
+  document.getElementById("signout").addEventListener("click", signOut);
   keyInput.addEventListener("keydown", function (e) { if (e.key === "Enter") load(); });
 
   var filters = document.querySelectorAll(".filter");

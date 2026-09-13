@@ -4,6 +4,13 @@
 const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, ".env") });
 
+// Before anything makes an outbound HTTPS call. On a machine whose antivirus
+// or proxy inspects TLS, Node otherwise rejects every certificate and the AI
+// assistant fails with a bare "Connection error". Local entry point only —
+// the Vercel function does not do this.
+const { trustSystemCAs } = require("./system-ca");
+const caResult = trustSystemCAs();
+
 const { createApp } = require("./app");
 const mailer = require("./mailer");
 const db = require("./db");
@@ -26,8 +33,11 @@ app.listen(PORT, () => {
   console.log(
     db.isPostgres
       ? "Storage: Postgres (DATABASE_URL)"
-      : "Storage: backend/data/appointments.json (set DATABASE_URL to use Postgres)"
+      : `Storage: ${db.dataFile} (set DATABASE_URL to use Postgres)`
   );
+  if (!db.isPostgres && process.env.APPOINTMENTS_FILE) {
+    console.log("APPOINTMENTS_FILE is set — the usual backend/data/appointments.json is NOT being touched.");
+  }
   const missingMail = mailer.missingConfig();
   if (missingMail.length) {
     console.log(`Email notifications disabled — set ${missingMail.join(" and ")} in backend/.env to enable.`);
@@ -35,6 +45,9 @@ app.listen(PORT, () => {
     console.log("Email notifications: on (clinic address from CLINIC_EMAIL).");
   }
   if (!process.env.ADMIN_KEY) console.log("WARNING: ADMIN_KEY not set — /api/appointments admin view is locked out.");
+  if (caResult.applied) {
+    console.log(`TLS: trusting ${caResult.added} additional certificate(s) from the system store.`);
+  }
   const ai = chat.status();
   if (ai.enabled) {
     console.log(`AI chat assistant: ${ai.provider} (${ai.model})`);

@@ -9,7 +9,10 @@
     "db:check": "node scripts/db-check.js",
     "test:admin": "node scripts/test-admin-auth.js",
     "test:admin-write": "node scripts/test-admin-write.js",
-    "test:admin-ui": "node scripts/test-admin-ui.js"
+    "test:admin-ui": "node scripts/test-admin-ui.js",
+    "test:handover": "node scripts/test-handover.js",
+    "demo": "node scripts/demo.js",
+    "chat:check": "node scripts/chat-check.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",

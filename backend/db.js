@@ -282,7 +282,14 @@ function createPostgresDriver(connectionString) {
 // ---------------------------------------------------------------------------
 
 function createFileDriver() {
-  const DATA_FILE = path.join(__dirname, "data", "appointments.json");
+  // Normally backend/data/appointments.json. APPOINTMENTS_FILE points the
+  // driver somewhere else, which is what lets a demo or a rehearsal run
+  // against a scratch file instead of the records already on this machine —
+  // no backing up and restoring the real one around a live presentation.
+  // Ignored entirely when DATABASE_URL is set: Postgres is then the store.
+  const DATA_FILE = process.env.APPOINTMENTS_FILE
+    ? path.resolve(process.env.APPOINTMENTS_FILE)
+    : path.join(__dirname, "data", "appointments.json");
 
   // Vercel’s filesystem is read-only, so this driver cannot store anything there.
   // Without this guard the first booking dies inside writeFileSync with an EROFS
@@ -325,6 +332,10 @@ function createFileDriver() {
   const hits = new Map();
 
   return {
+    // Reported at startup so it is obvious which file is being written —
+    // the difference between a demo and the real local records.
+    dataFile: DATA_FILE,
+
     async getBookedTimes(date) {
       return load()
         .filter((a) => a.date === date && a.status !== "cancelled" && a.time)
